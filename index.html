@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D Менеджер Персонажей (Игрок)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Подключаем обе библиотеки -->
+    <script src="./spellsAndSkills.js"></script>
+    <script src="./equipmentAndItemList.js"></script>
+    
+    <style>
+        .no-spinners {
+            -moz-appearance: textfield;
+        }
+        .no-spinners::-webkit-outer-spin-button,
+        .no-spinners::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        select option {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .lib-matched {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        .tooltip-container {
+            position: relative;
+            display: inline-flex;
+            width: 100%;
+        }
+        
+        .tooltip-box {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 110%; 
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background-color: #2a2a2a;
+            color: #fff;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            font-size: 0.85rem;
+            white-space: normal;
+            width: max-content;
+            max-width: 250px;
+            z-index: 50;
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: none;
+            line-height: 1.4;
+        }
+        
+        .tooltip-box img {
+            display: inline-block;
+            height: 1.2em; 
+            vertical-align: text-bottom;
+            margin: 0 2px;
+        }
+
+        .tooltip-box::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #444 transparent transparent transparent;
+        }
+
+        .tooltip-container:hover .tooltip-box:not(:empty) {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-[#1e1e1e] text-[#e0e0e0] font-sans selection:bg-gray-700 min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+    <div id="app" class="w-full flex flex-col items-center"></div>
+
+    <script>
+        const escapeHTML = (str) => {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        };
+
+        const parseEmojis = (text) => {
+            if (!text) return '';
+            return text.replace(/:([a-zA-Z0-9_]+):/g, (match, iconName) => {
+                return `<img src="emojis/${iconName}.png" alt="${iconName}" />`;
+            });
+        };
+
+        // База 1: Навыки и Заклинания
+        window.flatLibrary = {};
+        if (typeof window.dndLibrary !== 'undefined') {
+            const processLibrary = (obj) => {
+                for (const key in obj) {
+                    if (typeof obj[key] === 'string') {
+                        window.flatLibrary[key.trim().toLowerCase()] = obj[key];
+                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                        processLibrary(obj[key]);
+                    }
+                }
+            };
+            processLibrary(window.dndLibrary);
+        }
+
+        // База 2: Предметы и Экипировка
+        window.flatItemLibrary = {};
+        if (typeof window.dndItemLibrary !== 'undefined') {
+            const processItemLibrary = (obj) => {
+                for (const key in obj) {
+                    if (typeof obj[key] === 'string') {
+                        window.flatItemLibrary[key.trim().toLowerCase()] = obj[key];
+                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                        processItemLibrary(obj[key]);
+                    }
+                }
+            };
+            processItemLibrary(window.dndItemLibrary);
+        }
+
+        const createDefaultCharacter = () => ({
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+            name: 'Неизвестный Герой',
+            level: 1,
+            exp: 0,
+            strength: '0', 
+            dexterity: '0',
+            mind: '0',
+            hpCurrent: 15,
+            hpMax: 15,
+            enCurrent: 10,
+            enMax: 10,
+            strsCurrent: 0,
+            strsMax: 10,
+            personality: '',
+            
+            skills: Array.from({length: 4}, () => ({name: '', val: ''})),
+            inventory: Array.from({length: 3}, () => ({name: '', val: ''})),
+            actions: Array.from({length: 4}, () => ({name: '', sl: '', cost: '', type: ''})),
+            equipment: ['', '', '', ''],
+            traits: ['', '', ''],
+            buffs: [] 
+        });
+
+        const state = {
+            characters: [createDefaultCharacter()],
+            currentCharacterId: null,
+            isModalOpen: false,
+            errorMsg: null,
+            showBuffs: false
+        };
+        
+        state.currentCharacterId = state.characters[0].id;
+
+        const numberInputClass = "bg-[#161616] border border-[#333] hover:border-[#555] focus:border-[#777] rounded text-center outline-none text-[#e0e0e0] font-bold w-full transition-colors no-spinners";
+        const statBoxClass = "w-28 h-24 bg-[#232323] border border-[#333] rounded-lg shadow-sm flex flex-col items-center justify-center p-3 gap-2";
+        const sectionTitleClass = "flex items-center gap-2 mb-3 pb-2 border-b border-[#333] text-[#e0e0e0]";
+        const listInputClass = "w-full bg-[#1a1a1a] border border-[#333] rounded px-2 sm:px-3 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors";
+
+        const showError = (msg) => {
+            state.errorMsg = msg;
+            render();
+            setTimeout(() => {
+                state.errorMsg = null;
+                render();
+            }, 3000);
+        };
+
+        const handleExport = async () => {
+            try {
+                const dataStr = JSON.stringify(state.characters, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                
+                const suggestedName = 'characterSaveList.json';
+
+                if (window.showSaveFilePicker) {
+                    try {
+                        const fileHandle = await window.showSaveFilePicker({
+                            suggestedName: suggestedName,
+                            types: [{
+                                description: 'JSON файл персонажей',
+                                accept: { 'application/json': ['.json'] },
+                            }],
+                        });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                    }
+                }
+
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = suggestedName;
+                document.body.appendChild(link);
+                link.click();
+                
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                showError("Ошибка при экспорте файла.");
+            }
+        };
+
+        const migrateArray = (arr, defaultLen, type) => {
+            let res = Array.isArray(arr) ? arr : Array(defaultLen).fill(null);
+            return res.map(item => {
+                if (type === 'complex') {
+                    if (typeof item === 'string') return { name: item, val: '' };
+                    return { name: item?.name || '', val: item?.val || '' };
+                }
+                if (type === 'action') {
+                    if (typeof item === 'string') return { name: item, sl: '', cost: '', type: '' };
+                    return {
+                        name: item?.name || '',
+                        sl: item?.sl || '',
+                        cost: item?.cost || '',
+                        type: item?.type || ''
+                    };
+                }
+                if (type === 'buff') {
+                    if (typeof item === 'string') return { name: item, val: '', stat: '' };
+                    return {
+                        name: item?.name || '',
+                        val: item?.val || '',
+                        stat: item?.stat || ''
+                    };
+                }
+                return typeof item === 'string' ? item : (item?.name || '');
+            });
+        };
+
+        const handleImport = (file) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    if (Array.isArray(importedData)) {
+                        const sanitizedData = importedData.map(char => ({
+                            ...char,
+                            level: char.level ?? 1,
+                            exp: char.exp ?? 0,
+                            hpCurrent: char.hpCurrent ?? 10,
+                            hpMax: char.hpMax ?? 10,
+                            enCurrent: char.enCurrent ?? 10,
+                            enMax: char.enMax ?? 10,
+                            strsCurrent: char.strsCurrent ?? 0,
+                            strsMax: char.strsMax ?? 10,
+                            personality: char.personality || '',
+                            skills: migrateArray(char.skills, 4, 'complex'),
+                            inventory: migrateArray(char.inventory, 3, 'complex'),
+                            actions: migrateArray(char.actions, 4, 'action'),
+                            equipment: migrateArray(char.equipment, 4, 'simple'),
+                            traits: migrateArray(char.traits, 3, 'simple'),
+                            buffs: migrateArray(char.buffs, 0, 'buff')
+                        }));
+                        
+                        state.characters = sanitizedData;
+                        state.currentCharacterId = sanitizedData.length > 0 ? sanitizedData[0].id : null;
+                        render();
+                    } else {
+                        showError("Неверный формат файла. Ожидался список.");
+                    }
+                } catch (err) {
+                    showError("Ошибка при чтении файла. Убедитесь, что это корректный JSON.");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        const handleCreateNew = () => {
+            const newChar = {
+                ...createDefaultCharacter(),
+                name: 'Новый Персонаж'
+            };
+            state.characters.push(newChar);
+            state.currentCharacterId = newChar.id;
+            state.isModalOpen = false;
+            render();
+        };
+
+        const handleDelete = (id) => {
+            state.characters = state.characters.filter(c => c.id !== id);
+            if (state.currentCharacterId === id) {
+                state.currentCharacterId = state.characters.length > 0 ? state.characters[0].id : null;
+            }
+            if (state.characters.length === 0) {
+                state.isModalOpen = false;
+            }
+            render();
+        };
+
+        const getBuffForStat = (char, field) => {
+            const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
+            const statName = map[field];
+            if (!statName) return 0;
+            return (char.buffs || []).reduce((acc, curr) => {
+                if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
+                return acc;
+            }, 0);
+        };
+
+        const renderError = () => {
+            if (!state.errorMsg) return '';
+            return `
+                <div class="fixed top-5 left-1/2 -translate-x-1/2 bg-red-900/90 text-red-100 px-6 py-3 rounded-lg shadow-xl border border-red-700 z-50 animate-bounce">
+                    ${escapeHTML(state.errorMsg)}
+                </div>
+            `;
+        };
+
+        const renderTopBar = () => {
+            return `
+                <div class="flex flex-wrap gap-4 mb-8 w-full max-w-6xl justify-start border-b border-[#333] pb-6">
+                    <button data-action="export" class="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#444] rounded-md transition-all active:scale-95 text-sm font-medium">
+                        <span>📥</span> Скачать
+                    </button>
+                    
+                    <label class="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#444] rounded-md transition-all active:scale-95 cursor-pointer text-sm font-medium">
+                        <span>📤</span> Вставить
+                        <input type="file" accept=".json" class="hidden" id="import-file" />
+                    </label>
+                    
+                    <button data-action="open-modal" class="flex items-center gap-2 px-4 py-2 bg-[#333] hover:bg-[#444] border border-[#555] rounded-md transition-all active:scale-95 text-sm font-medium ml-auto">
+                        <span>👥</span> Выбрать персонажа
+                    </button>
+                </div>
+            `;
+        };
+
+        const renderArraySection = (char, field, icon, title, min, max) => {
+            const arr = char[field] || [];
+            const isComplexObj = field === 'skills' || field === 'inventory' || field === 'actions' || field === 'buffs';
+            
+            const htmlItems = arr.map((item, index) => {
+                const textVal = isComplexObj ? (item.name || '') : item;
+                let extraInputs = '';
+                
+                let tooltipContent = '';
+                let matchedClass = '';
+                const searchKey = textVal.trim().toLowerCase();
+                
+                const targetLibrary = (field === 'inventory' || field === 'equipment') 
+                    ? window.flatItemLibrary 
+                    : window.flatLibrary;
+                
+                if (targetLibrary && targetLibrary[searchKey]) {
+                    tooltipContent = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+                    matchedClass = 'lib-matched'; 
+                }
+                
+                if (field === 'skills' || field === 'inventory') {
+                    const extraVal = item.val || '';
+                    const placeholderVal = field === 'skills' ? 'Мод.' : 'Кол.';
+                    extraInputs = `
+                        <input type="text" data-field="${field}" data-index="${index}" data-subfield="val" value="${escapeHTML(extraVal)}" placeholder="${placeholderVal}" class="w-16 bg-[#1a1a1a] border border-[#333] rounded px-1 sm:px-2 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors flex-shrink-0" />
+                    `;
+                } 
+                else if (field === 'actions') {
+                    const slVal = item.sl || '';
+                    const costVal = item.cost || '';
+                    const typeVal = item.type || '';
+
+                    extraInputs = `
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            <span class="text-[#888] text-xs font-bold pl-1">СЛ:</span>
+                            <input type="text" maxlength="2" data-field="${field}" data-index="${index}" data-subfield="sl" value="${escapeHTML(slVal)}" placeholder="-" class="w-7 sm:w-8 bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors" />
+                        </div>
+                        
+                        <input type="text" data-field="${field}" data-index="${index}" data-subfield="cost" value="${escapeHTML(costVal)}" placeholder="Затр" class="w-12 sm:w-14 bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors flex-shrink-0" />
+                        
+                        <select data-field="${field}" data-index="${index}" data-subfield="type" class="w-[75px] sm:w-[90px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors flex-shrink-0 text-center cursor-pointer">
+                            <option value="" ${typeVal === '-' || typeVal === '' ? 'selected' : ''} disabled hidden>-</option>
+                            <option value="закл" ${typeVal === 'закл' ? 'selected' : ''}>закл</option>
+                            <option value="прием" ${typeVal === 'прием' ? 'selected' : ''}>прием</option>
+                            <option value="помощь" ${typeVal === 'помощь' ? 'selected' : ''}>помощь</option>
+                            <option value="стойка" ${typeVal === 'стойка' ? 'selected' : ''}>стойка</option>
+                            <option value="крафт" ${typeVal === 'крафт' ? 'selected' : ''}>крафт</option>
+                            <option value="починка" ${typeVal === 'починка' ? 'selected' : ''}>починка</option>
+                        </select>
+                    `;
+                }
+                else if (field === 'buffs') {
+                    const valVal = item.val || '';
+                    const statVal = item.stat || '';
+
+                    extraInputs = `
+                        <select data-field="${field}" data-index="${index}" data-subfield="val" class="w-[50px] sm:w-[55px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors flex-shrink-0 cursor-pointer" title="Значение">
+                            <option value="" ${valVal === '' ? 'selected' : ''} disabled hidden>-</option>
+                            <option value="2" ${valVal === '2' ? 'selected' : ''}>+2</option>
+                            <option value="1" ${valVal === '1' ? 'selected' : ''}>+1</option>
+                            <option value="-1" ${valVal === '-1' ? 'selected' : ''}>-1</option>
+                            <option value="-2" ${valVal === '-2' ? 'selected' : ''}>-2</option>
+                        </select>
+                        
+                        <select data-field="${field}" data-index="${index}" data-subfield="stat" class="w-[55px] sm:w-[65px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors flex-shrink-0 cursor-pointer" title="Характеристика">
+                            <option value="" ${statVal === '' ? 'selected' : ''} disabled hidden>-</option>
+                            <option value="сил" ${statVal === 'сил' ? 'selected' : ''}>сил</option>
+                            <option value="лов" ${statVal === 'лов' ? 'selected' : ''}>лов</option>
+                            <option value="рзм" ${statVal === 'рзм' ? 'selected' : ''}>рзм</option>
+                            <option value="хп" ${statVal === 'хп' ? 'selected' : ''}>хп</option>
+                            <option value="ен" ${statVal === 'ен' ? 'selected' : ''}>ен</option>
+                        </select>
+                    `;
+                }
+
+                return `
+                    <div class="flex items-center gap-1 sm:gap-2 w-full">
+                        <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${index + 1}.</span>
+                        <div class="tooltip-container">
+                            <input type="text" data-field="${field}" data-index="${index}" ${isComplexObj ? 'data-subfield="name"' : ''} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
+                            <div class="tooltip-box" data-tooltip-id="${field}-${index}">${tooltipContent}</div>
+                        </div>
+                        ${extraInputs}
+                    </div>
+                `;
+            }).join('');
+
+            const hasLimits = min !== undefined && max !== undefined;
+            const buttons = hasLimits ? `
+                <div class="flex gap-2 mt-3">
+                    <button data-action="adjust-array" data-field="${field}" data-add="true" data-min="${min}" data-max="${max}" ${arr.length >= max ? 'disabled' : ''} class="flex-1 flex items-center justify-center py-1.5 bg-[#2a2a2a] hover:bg-[#333] disabled:opacity-30 rounded border border-[#333] transition-colors">➕</button>
+                    <button data-action="adjust-array" data-field="${field}" data-add="false" data-min="${min}" data-max="${max}" ${arr.length <= min ? 'disabled' : ''} class="flex-1 flex items-center justify-center py-1.5 bg-[#2a2a2a] hover:bg-[#333] disabled:opacity-30 rounded border border-[#333] transition-colors">➖</button>
+                </div>
+            ` : '';
+
+            const countDisplay = hasLimits ? `<span class="ml-auto text-xs text-[#555]">${arr.length} / ${max}</span>` : '';
+
+            return `
+                <div class="flex flex-col">
+                    <div class="${sectionTitleClass}">
+                        <span>${icon}</span>
+                        <h3 class="text-lg font-semibold tracking-wide uppercase">${title}</h3>
+                        ${countDisplay}
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        ${htmlItems}
+                    </div>
+                    ${buttons}
+                </div>
+            `;
+        };
+
+        const renderCharacter = () => {
+            const char = state.characters.find(c => c.id === state.currentCharacterId);
+            if (!char) return `<div class="flex flex-col items-center justify-center h-64 text-[#666] mt-20 w-full"><h2 class="text-xl font-medium mb-6">Список персонажей пуст</h2></div>`;
+
+            const hpMaxBuff = getBuffForStat(char, 'hpMax');
+            const enMaxBuff = getBuffForStat(char, 'enMax');
+            const strBuff = getBuffForStat(char, 'strength');
+            const dexBuff = getBuffForStat(char, 'dexterity');
+            const mindBuff = getBuffForStat(char, 'mind');
+
+            const hpMaxDisplay = char.hpMax === '' ? '' : char.hpMax + hpMaxBuff;
+            const enMaxDisplay = char.enMax === '' ? '' : char.enMax + enMaxBuff;
+
+            const formatStatDisplay = (baseVal, buffVal) => {
+                if (baseVal === '') return '';
+                let total = (parseInt(baseVal) || 0) + buffVal;
+                return total > 0 ? '+' + total : total.toString();
+            };
+
+            const strDisplay = formatStatDisplay(char.strength, strBuff);
+            const dexDisplay = formatStatDisplay(char.dexterity, dexBuff);
+            const mindDisplay = formatStatDisplay(char.mind, mindBuff);
+
+            const getStatColorClass = (buffAmount) => {
+                if (buffAmount > 0) return 'text-green-400 border-green-700/50 shadow-[0_0_8px_rgba(74,222,128,0.15)]';
+                if (buffAmount < 0) return 'text-red-400 border-red-700/50 shadow-[0_0_8px_rgba(248,113,113,0.15)]';
+                return '';
+            };
+
+            return `
+                <div class="w-full max-w-7xl flex flex-col gap-6 animate-[fadeIn_0.5s_ease-out]">
+                    
+                    <div class="w-full max-w-2xl relative flex items-center group">
+                        <span class="absolute left-0 text-[#666] hidden sm:block text-2xl">👤</span>
+                        <input type="text" data-field="name" value="${escapeHTML(char.name)}" placeholder="Имя персонажа" class="w-full bg-transparent border-b border-[#444] focus:border-[#888] text-3xl md:text-4xl font-bold outline-none py-2 pl-0 sm:pl-10 transition-colors placeholder:text-[#555] text-white" />
+                    </div>
+
+                    <!-- 👇 УРОВЕНЬ И ОПЫТ 👇 -->
+                    <div class="flex gap-4 items-center w-full max-w-md">
+                        <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
+                            <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Уровень</span>
+                            <input type="number" data-field="level" value="${char.level ?? 1}" class="w-16 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                        </div>
+                        <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
+                            <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Опыт</span>
+                            <input type="number" data-field="exp" value="${char.exp ?? 0}" class="w-20 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-red-900/80 font-semibold text-red-400">ХП</span>
+                            <div class="flex items-center gap-1 w-full h-10">
+                                <input type="number" data-field="hpCurrent" value="${char.hpCurrent}" class="${numberInputClass} text-lg h-full" />
+                                <span class="text-[#555]">/</span>
+                                <input type="number" data-field="hpMax" value="${hpMaxDisplay}" class="${numberInputClass} ${getStatColorClass(hpMaxBuff)} transition-all text-lg h-full opacity-70" title="${hpMaxBuff ? (hpMaxBuff > 0 ? '+'+hpMaxBuff : hpMaxBuff) + ' от баффов' : ''}" />
+                            </div>
+                        </div>
+
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-blue-400 font-semibold">ЕН</span>
+                            <div class="flex items-center gap-1 w-full h-10">
+                                <input type="number" data-field="enCurrent" value="${char.enCurrent}" class="${numberInputClass} text-lg h-full" />
+                                <span class="text-[#555]">/</span>
+                                <input type="number" data-field="enMax" value="${enMaxDisplay}" class="${numberInputClass} ${getStatColorClass(enMaxBuff)} transition-all text-lg h-full opacity-70" title="${enMaxBuff ? (enMaxBuff > 0 ? '+'+enMaxBuff : enMaxBuff) + ' от баффов' : ''}" />
+                            </div>
+                        </div>
+                        
+                        <!-- СТРС теперь находится сразу после ЕН -->
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-purple-400 font-semibold">СТРС</span>
+                            <div class="flex items-center gap-1 w-full h-10">
+                                <input type="number" data-field="strsCurrent" value="${char.strsCurrent}" class="${numberInputClass} text-lg h-full" />
+                                <span class="text-[#555]">/</span>
+                                <input type="number" data-field="strsMax" value="${char.strsMax}" class="${numberInputClass} text-lg h-full opacity-70" />
+                            </div>
+                        </div>
+
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-[#888] font-semibold">СИЛ</span>
+                            <input type="text" data-field="strength" value="${strDisplay}" class="${numberInputClass} ${getStatColorClass(strBuff)} transition-all text-2xl h-10" title="${strBuff ? (strBuff > 0 ? '+'+strBuff : strBuff) + ' от баффов' : ''}" />
+                        </div>
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-[#888] font-semibold">ЛОВ</span>
+                            <input type="text" data-field="dexterity" value="${dexDisplay}" class="${numberInputClass} ${getStatColorClass(dexBuff)} transition-all text-2xl h-10" title="${dexBuff ? (dexBuff > 0 ? '+'+dexBuff : dexBuff) + ' от баффов' : ''}" />
+                        </div>
+                        <div class="${statBoxClass}">
+                            <span class="text-[10px] uppercase tracking-widest text-[#888] font-semibold">РЗМ</span>
+                            <input type="text" data-field="mind" value="${mindDisplay}" class="${numberInputClass} ${getStatColorClass(mindBuff)} transition-all text-2xl h-10" title="${mindBuff ? (mindBuff > 0 ? '+'+mindBuff : mindBuff) + ' от баффов' : ''}" />
+                        </div>
+                    </div>
+
+                    <!-- Основной блок -->
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full mt-4">
+                        <div class="flex flex-col gap-8">
+                            ${renderArraySection(char, 'actions', '⚡', 'Действия', 4, 10)}
+                            ${renderArraySection(char, 'inventory', '🎒', 'Инвентарь', 3, 8)}
+                        </div>
+                        <div class="flex flex-col gap-8">
+                            ${renderArraySection(char, 'equipment', '⚔️', 'Экипировка', 4, 10)}
+                            ${renderArraySection(char, 'skills', '📖', 'Навыки', 4, 10)}
+                        </div>
+                    </div>
+
+                    <!-- Скрываемый блок: Усиления (слева) и Черты (справа) -->
+                    <div class="w-full mt-2">
+                        <div data-action="toggle-buffs" class="flex items-center gap-4 cursor-pointer text-[#666] hover:text-[#aaa] transition-colors mb-2 select-none group">
+                            <div class="flex-1 h-px bg-[#333] group-hover:bg-[#555] transition-colors"></div>
+                            <span class="text-xs font-bold uppercase tracking-widest">${state.showBuffs ? 'Свернуть' : 'Больше'}</span>
+                            <div class="flex-1 h-px bg-[#333] group-hover:bg-[#555] transition-colors"></div>
+                        </div>
+                        
+                        ${state.showBuffs ? `
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full animate-[fadeIn_0.3s_ease-out] mt-4">
+                                <div class="flex flex-col relative">
+                                    <span class="absolute right-0 -top-6 text-[10px] text-[#555] font-mono">Shift+X - Сбросить всё</span>
+                                    ${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
+                                </div>
+                                <div class="flex flex-col">
+                                    ${renderArraySection(char, 'traits', '✨', 'Черты', 3, 5)}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderModal = () => {
+            if (!state.isModalOpen) return '';
+            
+            const listHtml = state.characters.length === 0 
+                ? `<p class="text-center text-[#666] py-8 text-sm">Список пуст</p>`
+                : state.characters.map(char => `
+                    <div class="flex justify-between items-center p-3 rounded-lg border transition-all ${state.currentCharacterId === char.id ? 'bg-[#2a2a2a] border-[#555]' : 'bg-[#1a1a1a] border-[#222] hover:border-[#444]'}">
+                        <button data-action="select-char" data-id="${char.id}" class="flex-1 text-left flex flex-col focus:outline-none">
+                            <span class="font-semibold text-base mb-1 text-[#eee]">${escapeHTML(char.name) || 'Без имени'}</span>
+                            <span class="text-xs text-[#888] flex gap-3 font-mono">
+                                <span>СИЛ:${escapeHTML(char.strength)}</span>
+                                <span>ЛОВ:${escapeHTML(char.dexterity)}</span>
+                                <span>ХП:${char.hpCurrent}/${char.hpMax}</span>
+                            </span>
+                        </button>
+                        <button data-action="delete-char" data-id="${char.id}" class="p-2 text-[#666] hover:text-red-400 hover:bg-[#333] rounded transition-colors" title="Удалить">
+                            🗑️
+                        </button>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div class="bg-[#1e1e1e] w-full max-w-md rounded-xl shadow-2xl border border-[#333] overflow-hidden flex flex-col max-h-[85vh]">
+                        <div class="p-4 border-b border-[#333] flex justify-between items-center bg-[#232323]">
+                            <h2 class="text-lg font-semibold text-[#e0e0e0]">Ваши персонажи</h2>
+                            <button data-action="close-modal" class="p-1.5 hover:bg-[#333] rounded-md transition-colors text-[#888] hover:text-[#eee]">❌</button>
+                        </div>
+                        <div class="overflow-y-auto p-3 flex-1 flex flex-col gap-2">
+                            ${listHtml}
+                        </div>
+                        <div class="p-3 border-t border-[#333] bg-[#232323]">
+                            <button data-action="create-new" class="w-full flex justify-center items-center gap-2 py-2.5 bg-[#333] hover:bg-[#444] text-[#eee] rounded-md transition-colors font-medium text-sm border border-[#444]">
+                                ➕ Новый персонаж
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const render = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                ${renderError()}
+                ${renderTopBar()}
+                ${renderCharacter()}
+                ${renderModal()}
+            `;
+        };
+
+        window.addEventListener('beforeunload', (e) => {
+            e.preventDefault();
+            e.returnValue = ''; 
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.shiftKey && e.code === 'KeyX') {
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+                
+                const char = state.characters.find(c => c.id === state.currentCharacterId);
+                if (char && char.buffs && char.buffs.length > 0) {
+                    e.preventDefault();
+                    char.buffs = []; 
+                    render();
+                }
+            }
+        });
+
+        document.getElementById('app').addEventListener('input', (e) => {
+            const field = e.target.getAttribute('data-field');
+            if (!field) return;
+
+            const char = state.characters.find(c => c.id === state.currentCharacterId);
+            if (!char) return;
+
+            const index = e.target.getAttribute('data-index');
+            const subfield = e.target.getAttribute('data-subfield');
+            let value = e.target.value;
+
+            const checkLibrary = (val) => {
+                const searchKey = val.trim().toLowerCase();
+                const tooltipBox = e.target.nextElementSibling;
+                const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
+                
+                if (targetLibrary && targetLibrary[searchKey]) {
+                    e.target.classList.add('lib-matched');
+                    if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+                        tooltipBox.innerHTML = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+                    }
+                } else {
+                    e.target.classList.remove('lib-matched');
+                    if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+                        tooltipBox.innerHTML = '';
+                    }
+                }
+            };
+
+            if (index !== null) {
+                if (subfield) {
+                    char[field][parseInt(index)][subfield] = value;
+                    if (subfield === 'name') checkLibrary(value);
+                    if (field === 'buffs' && (subfield === 'val' || subfield === 'stat')) {
+                        setTimeout(render, 50); 
+                    }
+                } else {
+                    char[field][parseInt(index)] = value;
+                    checkLibrary(value); 
+                }
+            } else {
+                let buffAmount = getBuffForStat(char, field);
+
+                if (field === 'hpMax' || field === 'enMax') {
+                    if (value === '') char[field] = '';
+                    else char[field] = Number(value) - buffAmount;
+                } 
+                else if (['strength', 'dexterity', 'mind'].includes(field)) {
+                    if (value === '') char[field] = '';
+                    else {
+                        let num = (parseInt(value) || 0) - buffAmount;
+                        char[field] = num > 0 ? '+' + num : num.toString();
+                    }
+                } 
+                else if (e.target.type === 'number') {
+                    char[field] = value === '' ? '' : Number(value);
+                } 
+                else {
+                    char[field] = value;
+                }
+            }
+        });
+
+        document.getElementById('app').addEventListener('wheel', (e) => {
+            const field = e.target.getAttribute('data-field');
+            if (field && ['hpCurrent', 'hpMax', 'enCurrent', 'enMax', 'strsCurrent', 'strsMax'].includes(field)) {
+                e.preventDefault(); 
+                
+                const char = state.characters.find(c => c.id === state.currentCharacterId);
+                if (!char) return;
+
+                let value = Number(e.target.value) || 0;
+                
+                if (e.deltaY < 0) value += 1;
+                else if (e.deltaY > 0) value -= 1;
+
+                e.target.value = value;
+                
+                let buffAmount = getBuffForStat(char, field);
+                char[field] = value - buffAmount;
+            }
+        }, { passive: false });
+
+        document.getElementById('app').addEventListener('change', (e) => {
+            if (e.target.id === 'import-file') {
+                handleImport(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
+
+        document.getElementById('app').addEventListener('click', (e) => {
+            const actionBtn = e.target.closest('[data-action]');
+            if (!actionBtn) return;
+
+            const action = actionBtn.getAttribute('data-action');
+
+            if (action === 'export') {
+                handleExport();
+            } else if (action === 'open-modal') {
+                state.isModalOpen = true;
+                render();
+            } else if (action === 'close-modal') {
+                state.isModalOpen = false;
+                render();
+            } else if (action === 'create-new') {
+                handleCreateNew();
+            } else if (action === 'delete-char') {
+                const id = actionBtn.getAttribute('data-id');
+                handleDelete(id);
+            } else if (action === 'select-char') {
+                state.currentCharacterId = actionBtn.getAttribute('data-id');
+                state.isModalOpen = false;
+                render();
+            } else if (action === 'toggle-buffs') {
+                state.showBuffs = !state.showBuffs;
+                render();
+            } else if (action === 'adjust-array') {
+                const field = actionBtn.getAttribute('data-field');
+                const isAdd = actionBtn.getAttribute('data-add') === 'true';
+                const min = parseInt(actionBtn.getAttribute('data-min'));
+                const max = parseInt(actionBtn.getAttribute('data-max'));
+                
+                const char = state.characters.find(c => c.id === state.currentCharacterId);
+                if (char && char[field]) {
+                    if (isAdd && char[field].length < max) {
+                        let newItem = '';
+                        if (field === 'skills' || field === 'inventory') newItem = {name: '', val: ''};
+                        else if (field === 'actions') newItem = {name: '', sl: '', cost: '', type: ''};
+                        else if (field === 'buffs') newItem = {name: '', val: '', stat: ''};
+                        
+                        char[field].push(newItem);
+                    } else if (!isAdd && char[field].length > min) {
+                        char[field].pop();
+                    }
+                    render();
+                }
+            }
+        });
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
