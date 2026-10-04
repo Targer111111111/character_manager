@@ -7,9 +7,10 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Подключаем обе библиотеки -->
+    <!-- Подключаем библиотеки -->
     <script src="./spellsAndSkills.js"></script>
     <script src="./equipmentAndItemList.js"></script>
+    <script src="./weapons.js"></script>
     
     <style>
         .no-spinners {
@@ -135,6 +136,19 @@
             processItemLibrary(window.dndItemLibrary);
         }
 
+        // База 3: Оружие
+        window.flatWeaponsLibrary = {};
+        if (typeof window.weaponsLibrary !== 'undefined') {
+            const processWeaponsLibrary = (obj) => {
+                for (const category in obj) {
+                    for (const weaponName in obj[category]) {
+                        window.flatWeaponsLibrary[weaponName.trim().toLowerCase()] = obj[category][weaponName];
+                    }
+                }
+            };
+            processWeaponsLibrary(window.weaponsLibrary);
+        }
+
         const createDefaultCharacter = () => ({
             id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
             name: 'Неизвестный Герой',
@@ -173,6 +187,59 @@
         const statBoxClass = "w-28 h-24 bg-[#232323] border border-[#333] rounded-lg shadow-sm flex flex-col items-center justify-center p-3 gap-2";
         const sectionTitleClass = "flex items-center gap-2 mb-3 pb-2 border-b border-[#333] text-[#e0e0e0]";
         const listInputClass = "w-full bg-[#1a1a1a] border border-[#333] rounded px-2 sm:px-3 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors";
+
+        const getBuffForStat = (char, field) => {
+            const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
+            const statName = map[field];
+            if (!statName) return 0;
+            return (char.buffs || []).reduce((acc, curr) => {
+                if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
+                return acc;
+            }, 0);
+        };
+
+        const updateDamageDisplays = () => {
+            const char = state.characters.find(c => c.id === state.currentCharacterId);
+            if (!char) return;
+
+            const strBuff = getBuffForStat(char, 'strength');
+            const dexBuff = getBuffForStat(char, 'dexterity');
+            const strTotal = (parseInt(char.strength) || 0) + strBuff;
+            const dexTotal = (parseInt(char.dexterity) || 0) + dexBuff;
+
+            for (let i = 0; i < 2; i++) {
+                const input = document.querySelector(`input[data-field="equipment"][data-index="${i}"]`);
+                const damageBox = document.getElementById(`damage-display-${i}`);
+                
+                if (input && damageBox) {
+                    const searchKey = input.value.trim().toLowerCase();
+                    let boxContent = '-';
+                    let boxTitle = '';
+                    let boxClass = 'w-[70px] sm:w-[85px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
+                    
+                    if (window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
+                        const weaponData = window.flatWeaponsLibrary[searchKey];
+                        
+                        if (weaponData.type === 'ближнее' || weaponData.type === 'дальнее') {
+                            let modTotal = weaponData.damage_mod || 0;
+                            if (weaponData.type === 'ближнее') modTotal += strTotal;
+                            else if (weaponData.type === 'дальнее') modTotal += dexTotal;
+                            
+                            let modString = modTotal > 0 ? `+${modTotal}` : (modTotal < 0 ? `${modTotal}` : '');
+                            boxContent = `${weaponData.damage}${modString}`;
+                            boxTitle = `Урон: ${boxContent}`;
+                            boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#e0e0e0] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center font-mono';
+                        } else {
+                            boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
+                        }
+                    }
+                    
+                    damageBox.className = boxClass;
+                    damageBox.innerHTML = boxContent;
+                    damageBox.title = boxTitle;
+                }
+            }
+        };
 
         const showError = (msg) => {
             state.errorMsg = msg;
@@ -311,16 +378,6 @@
             render();
         };
 
-        const getBuffForStat = (char, field) => {
-            const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
-            const statName = map[field];
-            if (!statName) return 0;
-            return (char.buffs || []).reduce((acc, curr) => {
-                if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
-                return acc;
-            }, 0);
-        };
-
         const renderError = () => {
             if (!state.errorMsg) return '';
             return `
@@ -353,6 +410,11 @@
             const arr = char[field] || [];
             const isComplexObj = field === 'skills' || field === 'inventory' || field === 'actions' || field === 'buffs';
             
+            const strBuff = getBuffForStat(char, 'strength');
+            const dexBuff = getBuffForStat(char, 'dexterity');
+            const strTotal = (parseInt(char.strength) || 0) + strBuff;
+            const dexTotal = (parseInt(char.dexterity) || 0) + dexBuff;
+            
             const htmlItems = arr.map((item, index) => {
                 const textVal = isComplexObj ? (item.name || '') : item;
                 let extraInputs = '';
@@ -368,6 +430,50 @@
                 if (targetLibrary && targetLibrary[searchKey]) {
                     tooltipContent = parseEmojis(escapeHTML(targetLibrary[searchKey]));
                     matchedClass = 'lib-matched'; 
+                }
+
+                let damageDisplay = '';
+                if (field === 'equipment') {
+                    if (index < 2) {
+                        let boxContent = '-';
+                        let boxTitle = '';
+                        let boxClass = 'w-[70px] sm:w-[85px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
+
+                        if (window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
+                            const weaponData = window.flatWeaponsLibrary[searchKey];
+                            matchedClass = 'lib-matched';
+                            
+                            // Формируем дополнительную информацию о типе и весе оружия для тултипа
+                            let extraTooltipInfo = '';
+                            if (weaponData.type || weaponData.weight) {
+                                const typeStr = weaponData.type ? `Тип: ${weaponData.type}` : '';
+                                const weightStr = weaponData.weight ? `Вес: ${weaponData.weight}` : '';
+                                const combined = [typeStr, weightStr].filter(Boolean).join(' | ');
+                                extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
+                            }
+                            
+                            tooltipContent = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+                            
+                            if (weaponData.type === 'ближнее' || weaponData.type === 'дальнее') {
+                                let modTotal = weaponData.damage_mod || 0;
+                                if (weaponData.type === 'ближнее') modTotal += strTotal;
+                                else if (weaponData.type === 'дальнее') modTotal += dexTotal;
+                                
+                                let modString = modTotal > 0 ? `+${modTotal}` : (modTotal < 0 ? `${modTotal}` : '');
+                                boxContent = `${weaponData.damage}${modString}`;
+                                boxTitle = `Урон: ${boxContent}`;
+                                boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#e0e0e0] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center font-mono';
+                            } else {
+                                boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
+                            }
+                        }
+                        
+                        damageDisplay = `
+                            <div id="damage-display-${index}" class="${boxClass}" title="${boxTitle}">
+                                ${boxContent}
+                            </div>
+                        `;
+                    }
                 }
                 
                 if (field === 'skills' || field === 'inventory') {
@@ -432,6 +538,7 @@
                             <input type="text" data-field="${field}" data-index="${index}" ${isComplexObj ? 'data-subfield="name"' : ''} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
                             <div class="tooltip-box" data-tooltip-id="${field}-${index}">${tooltipContent}</div>
                         </div>
+                        ${damageDisplay}
                         ${extraInputs}
                     </div>
                 `;
@@ -530,7 +637,6 @@
                             </div>
                         </div>
                         
-                        <!-- СТРС теперь находится сразу после ЕН -->
                         <div class="${statBoxClass}">
                             <span class="text-[10px] uppercase tracking-widest text-purple-400 font-semibold">СТРС</span>
                             <div class="flex items-center gap-1 w-full h-10">
@@ -673,18 +779,45 @@
             const checkLibrary = (val) => {
                 const searchKey = val.trim().toLowerCase();
                 const tooltipBox = e.target.nextElementSibling;
-                const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
+                let isMatched = false;
                 
+                const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
                 if (targetLibrary && targetLibrary[searchKey]) {
                     e.target.classList.add('lib-matched');
                     if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
                         tooltipBox.innerHTML = parseEmojis(escapeHTML(targetLibrary[searchKey]));
                     }
-                } else {
+                    isMatched = true;
+                } 
+                
+                if (field === 'equipment' && window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
+                    e.target.classList.add('lib-matched');
+                    if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+                        const weaponData = window.flatWeaponsLibrary[searchKey];
+                        
+                        // Добавляем тип и вес при динамическом вводе
+                        let extraTooltipInfo = '';
+                        if (weaponData.type || weaponData.weight) {
+                            const typeStr = weaponData.type ? `Тип: ${weaponData.type}` : '';
+                            const weightStr = weaponData.weight ? `Вес: ${weaponData.weight}` : '';
+                            const combined = [typeStr, weightStr].filter(Boolean).join(' | ');
+                            extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
+                        }
+                        
+                        tooltipBox.innerHTML = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+                    }
+                    isMatched = true;
+                }
+
+                if (!isMatched) {
                     e.target.classList.remove('lib-matched');
                     if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
                         tooltipBox.innerHTML = '';
                     }
+                }
+                
+                if (field === 'equipment') {
+                    updateDamageDisplays();
                 }
             };
 
@@ -692,9 +825,6 @@
                 if (subfield) {
                     char[field][parseInt(index)][subfield] = value;
                     if (subfield === 'name') checkLibrary(value);
-                    if (field === 'buffs' && (subfield === 'val' || subfield === 'stat')) {
-                        setTimeout(render, 50); 
-                    }
                 } else {
                     char[field][parseInt(index)] = value;
                     checkLibrary(value); 
@@ -712,6 +842,7 @@
                         let num = (parseInt(value) || 0) - buffAmount;
                         char[field] = num > 0 ? '+' + num : num.toString();
                     }
+                    updateDamageDisplays();
                 } 
                 else if (e.target.type === 'number') {
                     char[field] = value === '' ? '' : Number(value);
@@ -746,6 +877,8 @@
             if (e.target.id === 'import-file') {
                 handleImport(e.target.files[0]);
                 e.target.value = '';
+            } else if (['INPUT', 'SELECT'].includes(e.target.tagName)) {
+                render();
             }
         });
 
