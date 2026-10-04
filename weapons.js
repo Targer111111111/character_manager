@@ -94,7 +94,7 @@ window.weaponsLibrary = {
             "type": "дальнее"
         },
         "Винтовка со штыком": {
-            "description": "бонусным действием можно накладывать:bleeding_effect_icon_high:, в ближнем бою",
+            "description": "бонусным действием можно накладывать: :bleeding_effect_icon_high:, в ближнем бою",
             "damage": "1d8",
             "damage_mod": 0,
             "weight":"среднее",
