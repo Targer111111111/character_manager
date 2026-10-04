@@ -81,8 +81,8 @@ window.weaponsLibrary = {
         },
         "Автомат А": {
             "description": "0",
-            "damage": "1d8",
-            "damage_mod": -1,
+            "damage": "1d6",
+            "damage_mod": 1,
             "weight":"среднее",
             "type": "дальнее"
         },
