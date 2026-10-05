@@ -73,15 +73,29 @@ window.weaponsLibrary = {
     },
     "Дальнее": {
         "Гвоздомет": {
-            "description": "СЛ:15 накладывает :bleed_icon:",
+            "description": "СЛ:15 накладывает :prone_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 1,
             "weight":"среднее",
             "type": "дальнее"
         },
         "Автомат А": {
-            "description": "0",
+            "description": "Пистолет модифицерованный удлинением с рукоядью на конце",
             "damage": "1d6",
+            "damage_mod": 1,
+            "weight":"среднее",
+            "type": "дальнее"
+        },
+        "Пистолет А": {
+            "description": "СЛ:20 накладывает::vulnerability_effect_icon_high:",
+            "damage": "1d4",
+            "damage_mod": 1,
+            "weight":"среднее",
+            "type": "дальнее"
+        },
+        "Пистолет Б": {
+            "description": "СЛ:20 накладывает::vulnerability_effect_icon_high:",
+            "damage": "1d4",
             "damage_mod": 1,
             "weight":"среднее",
             "type": "дальнее"
@@ -96,8 +110,15 @@ window.weaponsLibrary = {
         "Винтовка со штыком": {
             "description": "бонусным действием можно накладывать: :bleeding_effect_icon_high:, в ближнем бою",
             "damage": "1d8",
-            "damage_mod": 0,
+            "damage_mod": 1,
             "weight":"среднее",
+            "type": "дальнее"
+        },
+        "Энерго лук": {
+            "description": "пропуск основного хода дает: :pressur_effect_icon_high:",
+            "damage": "1d6",
+            "damage_mod": 2,
+            "weight":"двуручное",
             "type": "дальнее"
         }, 
         "Воздушка": {
