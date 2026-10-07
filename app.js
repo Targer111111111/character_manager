@@ -122,15 +122,6 @@ const getBuffForStat = (char, field) => {
     }, 0);
 };
 
-    const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
-    const statName = map[field];
-    if (!statName) return 0;
-    return (char.buffs || []).reduce((acc, curr) => {
-        if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
-        return acc;
-    }, 0);
-};
-
 const updateDamageDisplays = () => {
     const char = state.characters.find(c => c.id === state.currentCharacterId);
     if (!char) return;
@@ -566,8 +557,9 @@ const renderCharacter = () => {
                 
                 <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
                     <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Опыт</span>
-                
-            </div>
+                    <input type="number" data-field="exp" value="${char.exp ?? 0}" class="w-20 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                </div>
+            </div> <!-- 👈 ДОБАВЬТЕ ЭТОТ ТЕГ СЮДА -->
 
             <div class="flex flex-wrap gap-4 items-center">
                 <div class="${statBoxClass}">
