@@ -73,9 +73,9 @@ const createDefaultCharacter = () => ({
     strsMax: 10,
     personality: '',
     
-    skills: Array.from({length: 4}, () => ({name: '', val: ''})),
+    skills: Array.from({length: 4}, () => ({name: '', val: '', status: 0})),
     inventory: Array.from({length: 3}, () => ({name: '', val: ''})),
-    actions: Array.from({length: 4}, () => ({name: '', sl: '', cost: '', type: ''})),
+    actions: Array.from({length: 4}, () => ({name: '', sl: '', cost: '', type: '', status: 0})),
     equipment: ['', '', '', ''],
     traits: ['', '', ''],
     buffs: [] 
@@ -201,16 +201,17 @@ const migrateArray = (arr, defaultLen, type) => {
     let res = Array.isArray(arr) ? arr : Array(defaultLen).fill(null);
     return res.map(item => {
         if (type === 'complex') {
-            if (typeof item === 'string') return { name: item, val: '' };
-            return { name: item?.name || '', val: item?.val || '' };
+            if (typeof item === 'string') return { name: item, val: '', status: 0 };
+            return { name: item?.name || '', val: item?.val || '', status: item?.status || 0 };
         }
         if (type === 'action') {
-            if (typeof item === 'string') return { name: item, sl: '', cost: '', type: '' };
+            if (typeof item === 'string') return { name: item, sl: '', cost: '', type: '', status: 0 };
             return {
                 name: item?.name || '',
                 sl: item?.sl || '',
                 cost: item?.cost || '',
-                type: item?.type || ''
+                type: item?.type || '',
+                status: item?.status || 0
             };
         }
         if (type === 'buff') {
@@ -326,7 +327,23 @@ const renderArraySection = (char, field, icon, title, min, max) => {
     const htmlItems = arr.map((item, index) => {
         const textVal = isComplexObj ? (item.name || '') : item;
         let extraInputs = '';
-        
+        let statusToggle = '';
+        if (field === 'skills' || field === 'actions') {
+            const status = item.status || 0;
+            let statusContent = '';
+            
+            if (status === 0) statusContent = '<div class="w-3 h-3 border-2 border-[#555] rounded-sm"></div>'; // Пустой квадрат
+            else if (status === 1) statusContent = '✅'; // Зеленая галочка
+            else if (status === 2) statusContent = '🔒'; // Замок
+            else if (status === 3) statusContent = '🦠'; // Вирус
+
+            statusToggle = `
+                <button data-action="toggle-status" data-field="${field}" data-index="${index}" class="w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#333] rounded transition-colors text-xs sm:text-sm focus:outline-none" title="Сменить статус">
+                    ${statusContent}
+                </button>
+            `;
+        }
+
         let tooltipContent = '';
         let matchedClass = '';
         const searchKey = textVal.trim().toLowerCase();
@@ -439,9 +456,10 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             `;
         }
 
-        return `
+       return `
             <div class="flex items-center gap-1 sm:gap-2 w-full">
                 <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${index + 1}.</span>
+                ${statusToggle}
                 <div class="tooltip-container">
                     <input type="text" data-field="${field}" data-index="${index}" ${isComplexObj ? 'data-subfield="name"' : ''} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
                     <div class="tooltip-box" data-tooltip-id="${field}-${index}">${tooltipContent}</div>
@@ -814,6 +832,17 @@ document.getElementById('app').addEventListener('click', (e) => {
         state.isModalOpen = false;
         render();
     } else if (action === 'toggle-buffs') {
+        } else if (action === 'toggle-status') {
+        const field = actionBtn.getAttribute('data-field');
+        const index = parseInt(actionBtn.getAttribute('data-index'));
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        
+        if (char && char[field] && char[field][index] !== undefined) {
+            const currentStatus = char[field][index].status || 0;
+            // Увеличиваем статус на 1. Оператор % 4 зациклит его: 0 -> 1 -> 2 -> 3 -> 0
+            char[field][index].status = (currentStatus + 1) % 4;
+            render();
+        }
         state.showBuffs = !state.showBuffs;
         render();
     } else if (action === 'adjust-array') {
@@ -826,8 +855,9 @@ document.getElementById('app').addEventListener('click', (e) => {
         if (char && char[field]) {
             if (isAdd && char[field].length < max) {
                 let newItem = '';
-                if (field === 'skills' || field === 'inventory') newItem = {name: '', val: ''};
-                else if (field === 'actions') newItem = {name: '', sl: '', cost: '', type: ''};
+                if (field === 'skills') newItem = {name: '', val: '', status: 0};
+                else if (field === 'inventory') newItem = {name: '', val: ''};
+                else if (field === 'actions') newItem = {name: '', sl: '', cost: '', type: '', status: 0};
                 else if (field === 'buffs') newItem = {name: '', val: '', stat: ''};
                 
                 char[field].push(newItem);
