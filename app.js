@@ -96,7 +96,32 @@ const statBoxClass = "w-28 h-24 bg-[#232323] border border-[#333] rounded-lg sha
 const sectionTitleClass = "flex items-center gap-2 mb-3 pb-2 border-b border-[#333] text-[#e0e0e0]";
 const listInputClass = "w-full bg-[#1a1a1a] border border-[#333] rounded px-2 sm:px-3 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors";
 
+const calculateLevel = (exp) => {
+    const e = Number(exp) || 0;
+    if (e >= 8000) return 12;
+    if (e >= 6000) return 11;
+    if (e >= 4800) return 10;
+    if (e >= 4000) return 9;
+    if (e >= 3500) return 8;
+    if (e >= 3000) return 7;
+    if (e >= 2600) return 6;
+    if (e >= 2000) return 5;
+    if (e >= 1200) return 4;
+    if (e >= 800) return 3;
+    if (e >= 300) return 2;
+    return 1;
+};
+
 const getBuffForStat = (char, field) => {
+    const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
+    const statName = map[field];
+    if (!statName) return 0;
+    return (char.buffs || []).reduce((acc, curr) => {
+        if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
+        return acc;
+    }, 0);
+};
+
     const map = { strength: 'сил', dexterity: 'лов', mind: 'рзм', hpMax: 'хп', enMax: 'ен' };
     const statName = map[field];
     if (!statName) return 0;
@@ -536,12 +561,12 @@ const renderCharacter = () => {
             <div class="flex gap-4 items-center w-full max-w-md">
                 <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
                     <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Уровень</span>
-                    <input type="number" data-field="level" value="${char.level ?? 1}" class="w-16 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                    <input type="text" id="level-display-${char.id}" value="${calculateLevel(char.exp)}" readonly class="w-16 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#888] font-bold py-1 no-spinners cursor-not-allowed select-none transition-all duration-500" title="Уровень рассчитывается автоматически от опыта" />
                 </div>
+                
                 <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
                     <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Опыт</span>
-                    <input type="number" data-field="exp" value="${char.exp ?? 0}" class="w-20 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
-                </div>
+                
             </div>
 
             <div class="flex flex-wrap gap-4 items-center">
@@ -772,7 +797,39 @@ document.getElementById('app').addEventListener('input', (e) => {
         } 
         else if (e.target.type === 'number') {
             char[field] = value === '' ? '' : Number(value);
-        } 
+            
+            // Если изменился опыт — проверяем изменение уровня
+            if (field === 'exp') {
+                const oldLevel = char.level || 1;
+                const newLevel = calculateLevel(char.exp);
+                
+                // Если уровень действительно поменялся (игрок перешел порог опыта)
+                if (oldLevel !== newLevel) {
+                    char.level = newLevel;
+                    const levelDisplay = document.getElementById(`level-display-${char.id}`);
+                    
+                    if (levelDisplay) {
+                        levelDisplay.value = char.level;
+                        
+                        // Если новый уровень больше 1 — запускаем анимацию
+                        if (newLevel > 1) {
+                            // Убираем серые цвета и добавляем желтое свечение
+                            levelDisplay.classList.remove('bg-[#161616]', 'border-[#333]', 'text-[#888]');
+                            levelDisplay.classList.add('bg-yellow-900/50', 'border-yellow-500', 'text-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.2)]');
+                            
+                            // Возвращаем как было через 2 секунды (2000 миллисекунд)
+                            setTimeout(() => {
+                                // Проверяем, существует ли еще элемент (вдруг игрок быстро переключил персонажа)
+                                if (document.body.contains(levelDisplay)) {
+                                    levelDisplay.classList.remove('bg-yellow-900/50', 'border-yellow-500', 'text-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.2)]');
+                                    levelDisplay.classList.add('bg-[#161616]', 'border-[#333]', 'text-[#888]');
+                                }
+                            }, 2000);
+                        }
+                    }
+                }
+            }
+        }
         else {
             char[field] = value;
         }
@@ -832,7 +889,9 @@ document.getElementById('app').addEventListener('click', (e) => {
         state.isModalOpen = false;
         render();
     } else if (action === 'toggle-buffs') {
-        } else if (action === 'toggle-status') {
+        state.showBuffs = !state.showBuffs;
+        render();
+    } else if (action === 'toggle-status') {
         const field = actionBtn.getAttribute('data-field');
         const index = parseInt(actionBtn.getAttribute('data-index'));
         const char = state.characters.find(c => c.id === state.currentCharacterId);
@@ -843,8 +902,6 @@ document.getElementById('app').addEventListener('click', (e) => {
             char[field][index].status = (currentStatus + 1) % 4;
             render();
         }
-        state.showBuffs = !state.showBuffs;
-        render();
     } else if (action === 'adjust-array') {
         const field = actionBtn.getAttribute('data-field');
         const isAdd = actionBtn.getAttribute('data-add') === 'true';
