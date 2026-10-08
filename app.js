@@ -81,8 +81,16 @@ const createDefaultCharacter = () => ({
     buffs: [] 
 });
 
+const loadLocalCharacters = () => {
+    try {
+        const saved = localStorage.getItem('dndCharactersSave');
+        if (saved) return JSON.parse(saved);
+    } catch (e) { console.error('Ошибка загрузки', e); }
+    return [createDefaultCharacter()];
+};
+
 const state = {
-    characters: [createDefaultCharacter()],
+    characters: loadLocalCharacters(),
     currentCharacterId: null,
     isModalOpen: false,
     errorMsg: null,
@@ -681,6 +689,8 @@ const renderModal = () => {
 };
 
 const render = () => {
+    localStorage.setItem('dndCharactersSave', JSON.stringify(state.characters));
+    
     const app = document.getElementById('app');
     app.innerHTML = `
         ${renderError()}
