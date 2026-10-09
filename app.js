@@ -65,20 +65,22 @@ const createDefaultCharacter = () => ({
     strength: '0', 
     dexterity: '0',
     mind: '0',
-    hpCurrent: 15,
-    hpMax: 15,
+    hpCurrent: 20,
+    hpMax: 20,
     enCurrent: 10,
     enMax: 10,
     strsCurrent: 0,
     strsMax: 10,
     personality: '',
+    notes: '',
     
     skills: Array.from({length: 4}, () => ({name: '', val: '', status: 0})),
     inventory: Array.from({length: 3}, () => ({name: '', val: ''})),
     actions: Array.from({length: 4}, () => ({name: '', sl: '', cost: '', type: '', status: 0})),
     equipment: ['', '', '', ''],
     traits: ['', '', ''],
-    buffs: [] 
+    buffs: [],
+    savingThrows: []
 });
 
 const loadLocalCharacters = () => {
@@ -261,19 +263,21 @@ const handleImport = (file) => {
                     ...char,
                     level: char.level ?? 1,
                     exp: char.exp ?? 0,
-                    hpCurrent: char.hpCurrent ?? 10,
-                    hpMax: char.hpMax ?? 10,
+                    hpCurrent: char.hpCurrent ?? 20,
+                    hpMax: char.hpMax ?? 20,
                     enCurrent: char.enCurrent ?? 10,
                     enMax: char.enMax ?? 10,
                     strsCurrent: char.strsCurrent ?? 0,
                     strsMax: char.strsMax ?? 10,
                     personality: char.personality || '',
+                    notes: char.notes || '',
                     skills: migrateArray(char.skills, 4, 'complex'),
                     inventory: migrateArray(char.inventory, 3, 'complex'),
                     actions: migrateArray(char.actions, 4, 'action'),
                     equipment: migrateArray(char.equipment, 4, 'simple'),
                     traits: migrateArray(char.traits, 3, 'simple'),
-                    buffs: migrateArray(char.buffs, 0, 'buff')
+                    buffs: migrateArray(char.buffs, 0, 'buff'),
+                    savingThrows: char.savingThrows || []
                 }));
                 
                 state.characters = sanitizedData;
@@ -342,7 +346,6 @@ const renderTopBar = () => {
 const renderArraySection = (char, field, icon, title, min, max) => {
     const arr = char[field] || [];
     const isComplexObj = field === 'skills' || field === 'inventory' || field === 'actions' || field === 'buffs';
-    
     const strBuff = getBuffForStat(char, 'strength');
     const dexBuff = getBuffForStat(char, 'dexterity');
     const strTotal = (parseInt(char.strength) || 0) + strBuff;
@@ -631,7 +634,7 @@ const renderCharacter = () => {
                     <div class="flex-1 h-px bg-[#333] group-hover:bg-[#555] transition-colors"></div>
                 </div>
                 
-                ${state.showBuffs ? `
+               ${state.showBuffs ? `
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full animate-[fadeIn_0.3s_ease-out] mt-4">
                         <div class="flex flex-col relative">
                             <span class="absolute right-0 -top-6 text-[10px] text-[#555] font-mono">Shift+X - Сбросить всё</span>
@@ -640,6 +643,49 @@ const renderCharacter = () => {
                         <div class="flex flex-col">
                             ${renderArraySection(char, 'traits', '✨', 'Черты', 3, 5)}
                         </div>
+                    </div>
+                    
+                    <!-- НАЧАЛО НОВОГО БЛОКА СПАСБРОСКОВ -->
+                   <div class="w-full flex items-center gap-3 mt-8 animate-[fadeIn_0.3s_ease-out] bg-[#232323] p-3 rounded-lg border border-[#333]">
+                        <span class="text-sm font-semibold tracking-wide uppercase text-[#888] flex items-center gap-2">🛡️ Спасброски</span>
+                        <div class="flex flex-wrap items-center gap-2 flex-1">
+                            ${(() => {
+                                const throws = char.savingThrows || [];
+                                const allOptions = ['сил', 'рзм', 'тел', 'лов', 'хар'];
+                                const available = allOptions.filter(opt => !throws.find(t => t.name === opt));
+                                
+                                let tagsHtml = throws.map((st, index) => {
+                                    const isActive = st.active || throws.length === 1; 
+                                    const bgClass = isActive ? 'bg-blue-900/40 border-blue-500 text-blue-400' : 'bg-[#1a1a1a] border-[#444] text-[#888] hover:border-[#666]';
+                                    
+                                    // Обратите внимание на использование одинарных кавычек внутри, чтобы избежать проблем со вложенными бэктиками
+                                    return '<div class="flex items-stretch border rounded overflow-hidden transition-colors ' + bgClass + '">' +
+                                        '<button data-action="toggle-st" data-index="' + index + '" class="px-2.5 py-1 text-xs uppercase font-bold focus:outline-none">' + st.name + '</button>' +
+                                        '<button data-action="remove-st" data-index="' + index + '" class="px-2 py-1 bg-black/20 hover:bg-red-500/80 hover:text-white transition-colors focus:outline-none border-l border-inherit" title="Удалить">×</button>' +
+                                    '</div>';
+                                }).join('');
+
+                                let addBtnHtml = '';
+                                if (available.length > 0) {
+                                    const optionsHtml = available.map(opt => '<option value="' + opt + '">' + opt.toUpperCase() + '</option>').join('');
+                                    addBtnHtml = '<select data-action="add-st" class="bg-[#1a1a1a] border border-[#444] rounded px-2 py-1 text-sm font-bold text-[#e0e0e0] cursor-pointer outline-none hover:border-[#666] transition-colors text-center h-[26px]">' +
+                                        '<option value="" disabled selected>+</option>' +
+                                        optionsHtml +
+                                    '</select>';
+                                }
+
+                                return tagsHtml + addBtnHtml;
+                            })()}
+                        </div>
+                    </div>
+                    <!-- КОНЕЦ БЛОКА СПАСБРОСКОВ -->
+
+                    <div class="w-full flex flex-col mt-6 animate-[fadeIn_0.3s_ease-out]">
+                        <div class="\${sectionTitleClass}">
+                            <span>📝</span>
+                            <h3 class="text-lg font-semibold tracking-wide uppercase">Заметки</h3>
+                        </div>
+                        <textarea data-field="notes" class="w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-3 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors resize-y min-h-[120px]" placeholder="Ваши записи, квесты, контакты и важная информация...">${escapeHTML(char.notes || '')}</textarea>
                     </div>
                 ` : ''}
             </div>
@@ -862,6 +908,13 @@ document.getElementById('app').addEventListener('change', (e) => {
     if (e.target.id === 'import-file') {
         handleImport(e.target.files[0]);
         e.target.value = '';
+    } else if (e.target.getAttribute('data-action') === 'add-st') {
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        if (char) {
+            if (!char.savingThrows) char.savingThrows = [];
+            char.savingThrows.push({ name: e.target.value, active: char.savingThrows.length === 0 });
+            render();
+        }
     } else if (['INPUT', 'SELECT'].includes(e.target.tagName)) {
         render();
     }
@@ -904,24 +957,29 @@ document.getElementById('app').addEventListener('click', (e) => {
             char[field][index].status = (currentStatus + 1) % 4;
             render();
         }
-    } else if (action === 'adjust-array') {
+   } else if (action === 'adjust-array') {
+        // ... старый код логики массивов ...
         const field = actionBtn.getAttribute('data-field');
-        const isAdd = actionBtn.getAttribute('data-add') === 'true';
-        const min = parseInt(actionBtn.getAttribute('data-min'));
-        const max = parseInt(actionBtn.getAttribute('data-max'));
-        
-        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        // ...
         if (char && char[field]) {
-            if (isAdd && char[field].length < max) {
-                let newItem = '';
-                if (field === 'skills') newItem = {name: '', val: '', status: 0};
-                else if (field === 'inventory') newItem = {name: '', val: ''};
-                else if (field === 'actions') newItem = {name: '', sl: '', cost: '', type: '', status: 0};
-                else if (field === 'buffs') newItem = {name: '', val: '', stat: ''};
-                
-                char[field].push(newItem);
-            } else if (!isAdd && char[field].length > min) {
-                char[field].pop();
+            // ...
+            render();
+        }
+    } else if (action === 'toggle-st') {
+        const index = parseInt(actionBtn.getAttribute('data-index'));
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        if (char && char.savingThrows) {
+            char.savingThrows[index].active = !char.savingThrows[index].active;
+            render();
+        }
+    } else if (action === 'remove-st') {
+        const index = parseInt(actionBtn.getAttribute('data-index'));
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        if (char && char.savingThrows) {
+            char.savingThrows.splice(index, 1);
+            // Если после удаления остался всего 1, принудительно делаем его активным
+            if (char.savingThrows.length === 1) {
+                char.savingThrows[0].active = true;
             }
             render();
         }
