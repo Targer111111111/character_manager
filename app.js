@@ -78,7 +78,7 @@ const createDefaultCharacter = () => ({
     inventory: Array.from({length: 3}, () => ({name: '', val: ''})),
     actions: Array.from({length: 4}, () => ({name: '', sl: '', cost: '', type: '', status: 0})),
     equipment: ['', '', '', ''],
-    traits: ['', '', ''],
+    traits: ['', ''],
     buffs: [],
     savingThrows: []
 });
@@ -275,7 +275,7 @@ const handleImport = (file) => {
                     inventory: migrateArray(char.inventory, 3, 'complex'),
                     actions: migrateArray(char.actions, 4, 'action'),
                     equipment: migrateArray(char.equipment, 4, 'simple'),
-                    traits: migrateArray(char.traits, 3, 'simple'),
+                    traits: migrateArray(char.traits, 2, 'simple'),
                     buffs: migrateArray(char.buffs, 0, 'buff'),
                     savingThrows: char.savingThrows || []
                 }));
@@ -641,7 +641,7 @@ const renderCharacter = () => {
                             ${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
                         </div>
                         <div class="flex flex-col">
-                            ${renderArraySection(char, 'traits', '✨', 'Черты', 3, 5)}
+                            ${renderArraySection(char, 'traits', '✨', 'Черты', 2, 3)}
                         </div>
                     </div>
                     
@@ -958,18 +958,40 @@ document.getElementById('app').addEventListener('click', (e) => {
             render();
         }
    } else if (action === 'adjust-array') {
-        // ... старый код логики массивов ...
         const field = actionBtn.getAttribute('data-field');
-        // ...
+        const isAdd = actionBtn.getAttribute('data-add') === 'true';
+        const min = parseInt(actionBtn.getAttribute('data-min'));
+        const max = parseInt(actionBtn.getAttribute('data-max'));
+        
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (char && char[field]) {
-            // ...
+            if (isAdd && char[field].length < max) {
+                let newItem = '';
+                if (field === 'skills') newItem = {name: '', val: '', status: 0};
+                else if (field === 'inventory') newItem = {name: '', val: ''};
+                else if (field === 'actions') newItem = {name: '', sl: '', cost: '', type: '', status: 0};
+                else if (field === 'buffs') newItem = {name: '', val: '', stat: ''};
+                
+                char[field].push(newItem);
+            } else if (!isAdd && char[field].length > min) {
+                char[field].pop();
+            }
             render();
         }
     } else if (action === 'toggle-st') {
         const index = parseInt(actionBtn.getAttribute('data-index'));
         const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (char && char.savingThrows) {
-            char.savingThrows[index].active = !char.savingThrows[index].active;
+            // Если кликаем по УЖЕ активному, и он не один — ничего не делаем (или можно сделать его неактивным, 
+            // но в вашем ТЗ сказано "он должен переводить все другие теги... в неоктивное состояние")
+            const isAlreadyActive = char.savingThrows[index].active;
+            
+            // Сначала выключаем все
+            char.savingThrows.forEach(st => st.active = false);
+            
+            // Включаем тот, по которому кликнули
+            char.savingThrows[index].active = true;
+            
             render();
         }
     } else if (action === 'remove-st') {
