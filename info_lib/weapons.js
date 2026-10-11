@@ -1,10 +1,17 @@
 window.weaponsLibrary = {
     "Ближнее": {
         "Кухонный нож": {
-            "description": "СЛ:12 накладывает :bleed_icon:",
+            "description": "СЛ:14 накладывает :bleeding_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 1,
             "weight":"легкое",
+            "type": "ближнее"
+        },
+        "Кирка": {
+            "description": "лов-1, СЛ:15 накладывает :vulnerability_effect_icon_high:",
+            "damage": "1d6",
+            "damage_mod": 1,
+            "weight":"двуручное",
             "type": "ближнее"
         },
         "Рапира из арматуры": {
@@ -50,21 +57,21 @@ window.weaponsLibrary = {
             "type": "ближнее"
         },
         "Серп": {
-            "description": "СЛ:16 накладывает :bleed_icon:",
+            "description": "СЛ:16 накладывает :bleeding_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 2,
             "weight":"среднее",
             "type": "ближнее"
         },
         "Оскверненный серп": {
-            "description": "СЛ:13 накладывает на владельца :madness_icon: + :bleed_icon:",
+            "description": "СЛ:13 накладывает на владельца :madness_icon: + :bleeding_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 2,
             "weight":"среднее",
             "type": "ближнее"
         },
         "Топор дровосека": {
-            "description": "лов-1, СЛ:12 накладывает :bleed_icon:",
+            "description": "лов-1, СЛ:12 накладывает :bleeding_effect_icon_high:",
             "damage": "1d8",
             "damage_mod": 2,
             "weight":"двуручное",
