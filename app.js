@@ -487,9 +487,15 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             `;
         }
 
+       // Проверяем: если это инвентарь и номер ячейки 4 или больше (индекс >= 3)
+        let indexDisplay = `${index + 1}.`;
+        if (field === 'inventory' && (index + 1) >= 4) {
+            indexDisplay = '🎒';
+        }
+
        return `
             <div class="flex items-center gap-1 sm:gap-2 w-full">
-                <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${index + 1}.</span>
+                <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${indexDisplay}</span>
                 ${statusToggle}
                 <div class="tooltip-container">
                     <input type="text" data-field="${field}" data-index="${index}" ${isComplexObj ? 'data-subfield="name"' : ''} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
