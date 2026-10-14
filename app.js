@@ -606,7 +606,8 @@ const renderCharacter = () => {
                     <div class="flex items-center gap-1 w-full h-10">
                         <input type="number" data-field="strsCurrent" value="${char.strsCurrent}" class="${numberInputClass} text-lg h-full" />
                         <span class="text-[#555]">/</span>
-                        <input type="number" data-field="strsMax" value="${char.strsMax}" class="${numberInputClass} text-lg h-full opacity-70" />
+                        <!-- Делаем strsMax readonly, фиксируем 10 и меняем курсор -->
+                        <input type="number" value="10" readonly class="${numberInputClass} text-lg h-full opacity-70 cursor-not-allowed select-none" title="Максимальный стресс зафиксирован на 10" />
                     </div>
                 </div>
 
@@ -896,8 +897,24 @@ document.getElementById('app').addEventListener('input', (e) => {
 
 document.getElementById('app').addEventListener('wheel', (e) => {
     const field = e.target.getAttribute('data-field');
-    if (field && ['hpCurrent', 'hpMax', 'enCurrent', 'enMax', 'strsCurrent', 'strsMax'].includes(field)) {
+    // Оставляем возможность менять колесиком только текущие (Current) значения
+    if (field && ['hpCurrent', 'enCurrent', 'strsCurrent'].includes(field)) {
         e.preventDefault(); 
+        
+        const char = state.characters.find(c => c.id === state.currentCharacterId);
+        if (!char) return;
+
+        let value = Number(e.target.value) || 0;
+        
+        if (e.deltaY < 0) value += 1;
+        else if (e.deltaY > 0) value -= 1;
+
+        e.target.value = value;
+        
+        let buffAmount = getBuffForStat(char, field);
+        char[field] = value - buffAmount;
+    }
+}, { passive: false });
         
         const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (!char) return;
