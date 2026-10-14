@@ -963,8 +963,22 @@ document.getElementById('app').addEventListener('click', (e) => {
         
         if (char && char[field] && char[field][index] !== undefined) {
             const currentStatus = char[field][index].status || 0;
-            // Увеличиваем статус на 1. Оператор % 4 зациклит его: 0 -> 1 -> 2 -> 3 -> 0
-            char[field][index].status = (currentStatus + 1) % 4;
+            let nextStatus = (currentStatus + 1) % 4;
+
+            // Если пытаемся поставить галочку (статус 1)
+            if (nextStatus === 1) {
+                // Считаем количество уже существующих галочек в этом поле
+                const checkCount = char[field].reduce((count, item) => {
+                    return item.status === 1 ? count + 1 : count;
+                }, 0);
+
+                // Если уже есть 5 галочек, перепрыгиваем на замок (статус 2)
+                if (checkCount >= 5) {
+                    nextStatus = 2;
+                }
+            }
+
+            char[field][index].status = nextStatus;
             render();
         }
    } else if (action === 'adjust-array') {
