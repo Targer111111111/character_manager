@@ -450,12 +450,16 @@ const renderArraySection = (char, field, icon, title, min, max) => {
                 
                 <select data-field="${field}" data-index="${index}" data-subfield="type" class="w-[75px] sm:w-[90px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors flex-shrink-0 text-center cursor-pointer">
                     <option value="" ${typeVal === '-' || typeVal === '' ? 'selected' : ''} disabled hidden>-</option>
+                    <option value="-" ${typeVal === '-' ? 'selected' : ''}>-</option>
                     <option value="закл" ${typeVal === 'закл' ? 'selected' : ''}>закл</option>
                     <option value="прием" ${typeVal === 'прием' ? 'selected' : ''}>прием</option>
                     <option value="помощь" ${typeVal === 'помощь' ? 'selected' : ''}>помощь</option>
                     <option value="стойка" ${typeVal === 'стойка' ? 'selected' : ''}>стойка</option>
                     <option value="крафт" ${typeVal === 'крафт' ? 'selected' : ''}>крафт</option>
-                    <option value="починка" ${typeVal === 'починка' ? 'selected' : ''}>починка</option>
+                    <option value="ремонт" ${typeVal === 'ремонт' ? 'selected' : ''}>ремонт</option>
+                    <option value="разведка" ${typeVal === 'разведка' ? 'selected' : ''}>разведка</option>
+                    <option value="изучение" ${typeVal === 'изучение' ? 'selected' : ''}>изучение</option>
+
                 </select>
             `;
         }
