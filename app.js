@@ -915,21 +915,6 @@ document.getElementById('app').addEventListener('wheel', (e) => {
         char[field] = value - buffAmount;
     }
 }, { passive: false });
-        
-        const char = state.characters.find(c => c.id === state.currentCharacterId);
-        if (!char) return;
-
-        let value = Number(e.target.value) || 0;
-        
-        if (e.deltaY < 0) value += 1;
-        else if (e.deltaY > 0) value -= 1;
-
-        e.target.value = value;
-        
-        let buffAmount = getBuffForStat(char, field);
-        char[field] = value - buffAmount;
-    }
-}, { passive: false });
 
 document.getElementById('app').addEventListener('change', (e) => {
     if (e.target.id === 'import-file') {
