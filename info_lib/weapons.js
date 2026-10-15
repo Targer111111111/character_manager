@@ -7,10 +7,45 @@ window.weaponsLibrary = {
             "weight":"легкое",
             "type": "ближнее"
         },
-        "Кирка": {
-            "description": "лов-1, СЛ:15 накладывает :vulnerability_effect_icon_high:",
+        "Перчатка капкан": {
+            "description": "при попадании валделец и противник получают::prone_effect_icon_high:",
+            "damage": "1d4",
+            "damage_mod": 1,
+            "weight":"легкое",
+            "type": "ближнее"
+        },
+        "Металическая труба": {
+            "description": "-",
             "damage": "1d6",
             "damage_mod": 1,
+            "weight":"среднее",
+            "type": "ближнее"
+        },
+        "Верталетный меч": {
+            "description": "лов-1, защ-1, СЛ:12, накладывает::bleeding_effect_icon_high:",
+            "damage": "1d8",
+            "damage_mod": 3,
+            "weight":"среднее",
+            "type": "ближнее"
+        },
+        "Гаечный ключ": {
+            "description": "раз в акт можно снять с механизма любой дебаф, бонусным действием",
+            "damage": "1d4",
+            "damage_mod": 2,
+            "weight":"среднее",
+            "type": "ближнее"
+        },
+        "Развадной ключ": {
+            "description": "СЛ:10, если противник:механизм, накладывает::vulnerability_effect_icon_high:",
+            "damage": "1d4",
+            "damage_mod": 2,
+            "weight":"среднее",
+            "type": "ближнее"
+        },
+        "Кирка": {
+            "description": "лов-1, СЛ:14 накладывает :vulnerability_effect_icon_high:",
+            "damage": "1d6",
+            "damage_mod": 2,
             "weight":"двуручное",
             "type": "ближнее"
         },
@@ -43,7 +78,7 @@ window.weaponsLibrary = {
             "type": "ближнее"
         },
         "Бита": {
-            "description": "СЛ:10 отталкивает:3",
+            "description": "СЛ:12 отталкивает:3",
             "damage": "1d6",
             "damage_mod": 1,
             "weight":"среднее",
@@ -52,7 +87,7 @@ window.weaponsLibrary = {
         "Топор для костей": {
             "description": "-",
             "damage": "1d6",
-            "damage_mod": 1,
+            "damage_mod": 2,
             "weight":"среднее",
             "type": "ближнее"
         },
@@ -162,12 +197,19 @@ window.weaponsLibrary = {
         }
     },
     "Особое": {
+        "Острая монетка": {
+            "description": "При попадании увеличивает урон в след ходу на 3урн",
+            "damage": "1d4",
+            "damage_mod": 0,
+            "weight":"легкое",
+            "type": "ближнее"
+        },
         "Сумка мимик": {
             "description": "Если покормить мясом: след день урон 1d6+2, не использует модификаторы игроков на урон, +1 слот инвентаря",
             "damage": "1d4",
             "damage_mod": 0,
             "weight":"среднее",
-            "type": "особое"
+            "type": "ближнее"
         }
     }
 };
