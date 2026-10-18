@@ -9,24 +9,37 @@ const escapeHTML = (str) => {
 
 const parseEmojis = (text) => {
     if (!text) return '';
-    return text.replace(/:([a-zA-Z0-9_]+):/g, (match, iconName) => {
+    // Обновленное регулярное выражение: теперь поддерживает дефисы (-) и русские буквы
+    return text.replace(/:([a-zA-Z0-9_\-а-яА-ЯёЁ]+):/g, (match, iconName) => {
         return `<img src="emojis/${iconName}.png" alt="${iconName}" />`;
     });
 };
 
 // База 1: Навыки и Заклинания
-window.flatLibrary = {};
-if (typeof window.dndLibrary !== 'undefined') {
+window.flatLibrary = {};     // Хранит описания для тултипов
+window.flatLibraryFull = {}; // Хранит полные объекты со СЛ, затратами и типами
+
+const rawSkillLibrary = typeof window.parsedDndLibrary !== 'undefined' 
+    ? window.parsedDndLibrary 
+    : (typeof window.dndLibrary !== 'undefined' ? window.dndLibrary : undefined);
+
+if (rawSkillLibrary) {
     const processLibrary = (obj) => {
         for (const key in obj) {
-            if (typeof obj[key] === 'string') {
-                window.flatLibrary[key.trim().toLowerCase()] = obj[key];
-            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                processLibrary(obj[key]);
+            const item = obj[key];
+            if (typeof item === 'string') {
+                const k = key.trim().toLowerCase();
+                window.flatLibrary[k] = item;
+            } else if (item && typeof item === 'object' && item.description !== undefined) {
+                const k = (item.name || key).trim().toLowerCase();
+                window.flatLibrary[k] = item.description;
+                window.flatLibraryFull[k] = item;
+            } else if (typeof item === 'object' && item !== null) {
+                processLibrary(item);
             }
         }
     };
-    processLibrary(window.dndLibrary);
+    processLibrary(rawSkillLibrary);
 }
 
 // База 2: Предметы и Экипировка
@@ -60,6 +73,8 @@ if (typeof window.weaponsLibrary !== 'undefined') {
 const createDefaultCharacter = () => ({
     id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
     name: 'Неизвестный Герой',
+    race: '', 
+    path: '',
     level: 1,
     exp: 0,
     strength: '0', 
@@ -130,6 +145,58 @@ const getBuffForStat = (char, field) => {
         if (curr.stat === statName && curr.val) return acc + parseInt(curr.val);
         return acc;
     }, 0);
+};
+
+// Получение итогового значения характеристики (база + баффы) по короткому названию
+const getStatTotalByShortName = (char, statShort) => {
+    if (!statShort) return 0;
+    const s = statShort.trim().toLowerCase();
+    if (s === 'сил') return (parseInt(char.strength) || 0) + getBuffForStat(char, 'strength');
+    if (s === 'лов') return (parseInt(char.dexterity) || 0) + getBuffForStat(char, 'dexterity');
+    if (s === 'рзм') return (parseInt(char.mind) || 0) + getBuffForStat(char, 'mind');
+    return 0;
+};
+
+// Вычисление параметров действия из библиотеки
+const computeActionFieldsFromLib = (char, libItem) => {
+    // 1. Считаем СЛ: difficulty + (-1 * модификатор)
+    let sl = '';
+    if (libItem.difficulty !== undefined && libItem.difficulty !== null) {
+        let diff = Number(libItem.difficulty);
+        if (libItem.difficultyType) {
+            const statMod = getStatTotalByShortName(char, libItem.difficultyType);
+            diff = diff + (-1 * statMod);
+        }
+        sl = String(diff);
+    }
+
+    // 2. Считаем затраты: cost + costType слитно без пробелов
+    let cost = '';
+    if (libItem.cost !== undefined && libItem.cost !== null) {
+        cost = `${libItem.cost}${libItem.costType || ''}`;
+    }
+
+    // 3. Берем значение actionType из библиотеки (вместо type)
+    let type = libItem.actionType ? String(libItem.actionType).toLowerCase() : '';
+
+    return { sl, cost, type };
+};
+
+// Динамическое обновление СЛ в открытых действиях при смене характеристик
+const updateActionDisplays = () => {
+    const char = state.characters.find(c => c.id === state.currentCharacterId);
+    if (!char || !char.actions) return;
+
+    char.actions.forEach((act, idx) => {
+        const searchKey = (act.name || '').trim().toLowerCase();
+        const libItem = window.flatLibraryFull && window.flatLibraryFull[searchKey];
+        if (libItem && libItem.difficulty !== undefined && libItem.difficultyType) {
+            const { sl } = computeActionFieldsFromLib(char, libItem);
+            act.sl = sl;
+            const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
+            if (slInput) slInput.value = sl;
+        }
+    });
 };
 
 const updateDamageDisplays = () => {
@@ -261,6 +328,8 @@ const handleImport = (file) => {
             if (Array.isArray(importedData)) {
                 const sanitizedData = importedData.map(char => ({
                     ...char,
+                    race: char.race || '',
+                    path: char.path || '', 
                     level: char.level ?? 1,
                     exp: char.exp ?? 0,
                     hpCurrent: char.hpCurrent ?? 20,
@@ -359,10 +428,10 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             const status = item.status || 0;
             let statusContent = '';
             
-            if (status === 0) statusContent = '<div class="w-3 h-3 border-2 border-[#555] rounded-sm"></div>'; // Пустой квадрат
-            else if (status === 1) statusContent = '✅'; // Зеленая галочка
-            else if (status === 2) statusContent = '🔒'; // Замок
-            else if (status === 3) statusContent = '🦠'; // Вирус
+            if (status === 0) statusContent = '<div class="w-3 h-3 border-2 border-[#555] rounded-sm"></div>';
+            else if (status === 1) statusContent = '✅';
+            else if (status === 2) statusContent = '🔒';
+            else if (status === 3) statusContent = '🦠';
 
             statusToggle = `
                 <button data-action="toggle-status" data-field="${field}" data-index="${index}" class="w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#333] rounded transition-colors text-xs sm:text-sm focus:outline-none" title="Сменить статус">
@@ -395,7 +464,6 @@ const renderArraySection = (char, field, icon, title, min, max) => {
                     const weaponData = window.flatWeaponsLibrary[searchKey];
                     matchedClass = 'lib-matched';
                     
-                    // Формируем дополнительную информацию о типе и весе оружия для тултипа
                     let extraTooltipInfo = '';
                     if (weaponData.type || weaponData.weight) {
                         const typeStr = weaponData.type ? `Тип: ${weaponData.type}` : '';
@@ -436,32 +504,64 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             `;
         } 
         else if (field === 'actions') {
+            const libItem = window.flatLibraryFull && window.flatLibraryFull[searchKey];
+
+            // Если действие есть в библиотеке — синхронизируем actionType (убирает старые "action" из сохранений)
+            if (libItem) {
+                const computed = computeActionFieldsFromLib(char, libItem);
+                item.sl = computed.sl;
+                if (libItem.actionType) {
+                    item.type = computed.type;
+                } else if (item.type === 'action' || item.type === 'skill' || item.type === '-') {
+                    item.type = '';
+                }
+            }
+
             const slVal = item.sl || '';
             const costVal = item.cost || '';
-            const typeVal = item.type || '';
+            const typeVal = (item.type && item.type !== '-') ? item.type : '';
+
+            let slReadOnly = '';
+            let slClassExtra = '';
+            let typeReadOnly = '';
+            let typeClassExtra = '';
+            let wasMatchedAttr = '';
+
+            // Если действие есть в библиотеке — блокируем СЛ, а Тип блокируем только если в базе задан actionType
+            if (libItem) {
+                slReadOnly = 'readonly';
+                slClassExtra = 'cursor-not-allowed opacity-70';
+                if (libItem.actionType) {
+                    typeReadOnly = 'readonly';
+                    typeClassExtra = 'cursor-not-allowed opacity-70';
+                }
+                wasMatchedAttr = 'data-was-matched="true"';
+            }
 
             extraInputs = `
                 <div class="flex items-center gap-1 flex-shrink-0">
                     <span class="text-[#888] text-xs font-bold pl-1">СЛ:</span>
-                    <input type="text" maxlength="2" data-field="${field}" data-index="${index}" data-subfield="sl" value="${escapeHTML(slVal)}" placeholder="-" class="w-7 sm:w-8 bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors" />
+                    <input type="text" maxlength="2" data-field="${field}" data-index="${index}" data-subfield="sl" value="${escapeHTML(slVal)}" placeholder="-" class="w-7 sm:w-8 bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors ${slClassExtra}" ${slReadOnly} />
                 </div>
                 
                 <input type="text" data-field="${field}" data-index="${index}" data-subfield="cost" value="${escapeHTML(costVal)}" placeholder="Затр" class="w-12 sm:w-14 bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm text-center transition-colors flex-shrink-0" />
                 
-                <select data-field="${field}" data-index="${index}" data-subfield="type" class="w-[75px] sm:w-[90px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors flex-shrink-0 text-center cursor-pointer">
-                    <option value="" ${typeVal === '-' || typeVal === '' ? 'selected' : ''} disabled hidden>-</option>
-                    <option value="-" ${typeVal === '-' ? 'selected' : ''}>-</option>
-                    <option value="закл" ${typeVal === 'закл' ? 'selected' : ''}>закл</option>
-                    <option value="прием" ${typeVal === 'прием' ? 'selected' : ''}>прием</option>
-                    <option value="помощь" ${typeVal === 'помощь' ? 'selected' : ''}>помощь</option>
-                    <option value="стойка" ${typeVal === 'стойка' ? 'selected' : ''}>стойка</option>
-                    <option value="крафт" ${typeVal === 'крафт' ? 'selected' : ''}>крафт</option>
-                    <option value="ремонт" ${typeVal === 'ремонт' ? 'selected' : ''}>ремонт</option>
-                    <option value="разведка" ${typeVal === 'разведка' ? 'selected' : ''}>разведка</option>
-                    <option value="изучение" ${typeVal === 'изучение' ? 'selected' : ''}>изучение</option>
-
-                </select>
+                <input type="text" data-field="${field}" data-index="${index}" data-subfield="type" value="${escapeHTML(typeVal)}" placeholder="Тип" class="w-[75px] sm:w-[90px] bg-[#1a1a1a] border border-[#333] rounded px-1 py-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors flex-shrink-0 text-center ${typeClassExtra}" ${typeReadOnly} />
             `;
+            
+            let indexDisplay = `${index + 1}.`;
+            return `
+                 <div class="flex items-center gap-1 sm:gap-2 w-full">
+                     <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${indexDisplay}</span>
+                     ${statusToggle}
+                     <div class="tooltip-container">
+                         <input type="text" data-field="${field}" data-index="${index}" data-subfield="name" ${wasMatchedAttr} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
+                         <div class="tooltip-box" data-tooltip-id="${field}-${index}">${tooltipContent}</div>
+                     </div>
+                     ${damageDisplay}
+                     ${extraInputs}
+                 </div>
+             `;
         }
         else if (field === 'buffs') {
             const valVal = item.val || '';
@@ -487,13 +587,12 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             `;
         }
 
-       // Проверяем: если это инвентарь и номер ячейки 4 или больше (индекс >= 3)
         let indexDisplay = `${index + 1}.`;
         if (field === 'inventory' && (index + 1) >= 4) {
             indexDisplay = '🎒';
         }
 
-       return `
+        return `
             <div class="flex items-center gap-1 sm:gap-2 w-full">
                 <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${indexDisplay}</span>
                 ${statusToggle}
@@ -569,18 +668,32 @@ const renderCharacter = () => {
                 <input type="text" data-field="name" value="${escapeHTML(char.name)}" placeholder="Имя персонажа" class="w-full bg-transparent border-b border-[#444] focus:border-[#888] text-3xl md:text-4xl font-bold outline-none py-2 pl-0 sm:pl-10 transition-colors placeholder:text-[#555] text-white" />
             </div>
 
-            <!-- 👇 УРОВЕНЬ И ОПЫТ 👇 -->
-            <div class="flex gap-4 items-center w-full max-w-md">
-                <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
-                    <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Уровень</span>
-                    <input type="text" id="level-display-${char.id}" value="${calculateLevel(char.exp)}" readonly class="w-16 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#888] font-bold py-1 no-spinners cursor-not-allowed select-none transition-all duration-500" title="Уровень рассчитывается автоматически от опыта" />
+            <!-- УРОВЕНЬ И ОПЫТ -->
+            <div class="flex flex-wrap gap-4 items-center w-full max-w-4xl">
+                <!-- Раса -->
+                <div class="flex-1 min-w-[120px] bg-[#232323] border border-[#333] rounded-lg p-2.5 flex flex-col justify-center shadow-sm">
+                    <span class="text-[10px] uppercase tracking-wider text-[#888] font-semibold mb-1">Раса</span>
+                    <input type="text" data-field="race" value="${escapeHTML(char.race)}" placeholder="-" class="w-full bg-[#161616] border border-[#333] rounded px-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm py-1 transition-colors" />
                 </div>
                 
-                <div class="flex-1 bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm">
-                    <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Опыт</span>
-                    <input type="number" data-field="exp" value="${char.exp ?? 0}" class="w-20 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                <!-- Путь -->
+                <div class="flex-1 min-w-[120px] bg-[#232323] border border-[#333] rounded-lg p-2.5 flex flex-col justify-center shadow-sm">
+                    <span class="text-[10px] uppercase tracking-wider text-[#888] font-semibold mb-1">Путь</span>
+                    <input type="text" data-field="path" value="${escapeHTML(char.path)}" placeholder="-" class="w-full bg-[#161616] border border-[#333] rounded px-2 outline-none focus:border-[#666] text-[#e0e0e0] text-sm py-1 transition-colors" />
                 </div>
-            </div> <!-- 👈 ДОБАВЬТЕ ЭТОТ ТЕГ СЮДА -->
+
+                <!-- Уровень -->
+                <div class="flex-1 min-w-[120px] bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm h-full">
+                    <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Уровень</span>
+                    <input type="text" id="level-display-${char.id}" value="${calculateLevel(char.exp)}" readonly class="w-12 sm:w-16 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#888] font-bold py-1 no-spinners cursor-not-allowed select-none transition-all duration-500" title="Уровень рассчитывается автоматически от опыта" />
+                </div>
+                
+                <!-- Опыт -->
+                <div class="flex-1 min-w-[120px] bg-[#232323] border border-[#333] rounded-lg p-2.5 flex items-center justify-between shadow-sm h-full">
+                    <span class="text-xs uppercase tracking-wider text-[#888] font-semibold">Опыт</span>
+                    <input type="number" data-field="exp" value="${char.exp ?? 0}" class="w-16 sm:w-20 bg-[#161616] border border-[#333] rounded text-center outline-none text-[#e0e0e0] font-bold py-1 no-spinners" />
+                </div>
+            </div>
 
             <div class="flex flex-wrap gap-4 items-center">
                 <div class="${statBoxClass}">
@@ -606,7 +719,6 @@ const renderCharacter = () => {
                     <div class="flex items-center gap-1 w-full h-10">
                         <input type="number" data-field="strsCurrent" value="${char.strsCurrent}" class="${numberInputClass} text-lg h-full" />
                         <span class="text-[#555]">/</span>
-                        <!-- Делаем strsMax readonly, фиксируем 10 и меняем курсор -->
                         <input type="number" value="10" readonly class="${numberInputClass} text-lg h-full opacity-70 cursor-not-allowed select-none" title="Максимальный стресс зафиксирован на 10" />
                     </div>
                 </div>
@@ -649,18 +761,18 @@ const renderCharacter = () => {
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full animate-[fadeIn_0.3s_ease-out] mt-4">
                         <div class="flex flex-col relative">
                             <span class="absolute right-0 -top-6 text-[10px] text-[#555] font-mono">Shift+X - Сбросить всё</span>
-                            ${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
+                            \${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
                         </div>
                         <div class="flex flex-col">
-                            ${renderArraySection(char, 'traits', '✨', 'Черты', 2, 3)}
+                            \${renderArraySection(char, 'traits', '✨', 'Черты', 2, 3)}
                         </div>
                     </div>
                     
-                    <!-- НАЧАЛО НОВОГО БЛОКА СПАСБРОСКОВ -->
+                    <!-- БЛОК СПАСБРОСКОВ -->
                    <div class="w-full flex items-center gap-3 mt-8 animate-[fadeIn_0.3s_ease-out] bg-[#232323] p-3 rounded-lg border border-[#333]">
                         <span class="text-sm font-semibold tracking-wide uppercase text-[#888] flex items-center gap-2">🛡️ Спасброски</span>
                         <div class="flex flex-wrap items-center gap-2 flex-1">
-                            ${(() => {
+                            \${(() => {
                                 const throws = char.savingThrows || [];
                                 const allOptions = ['сил', 'рзм', 'тел', 'лов', 'хар'];
                                 const available = allOptions.filter(opt => !throws.find(t => t.name === opt));
@@ -669,7 +781,6 @@ const renderCharacter = () => {
                                     const isActive = st.active || throws.length === 1; 
                                     const bgClass = isActive ? 'bg-blue-900/40 border-blue-500 text-blue-400' : 'bg-[#1a1a1a] border-[#444] text-[#888] hover:border-[#666]';
                                     
-                                    // Обратите внимание на использование одинарных кавычек внутри, чтобы избежать проблем со вложенными бэктиками
                                     return '<div class="flex items-stretch border rounded overflow-hidden transition-colors ' + bgClass + '">' +
                                         '<button data-action="toggle-st" data-index="' + index + '" class="px-2.5 py-1 text-xs uppercase font-bold focus:outline-none">' + st.name + '</button>' +
                                         '<button data-action="remove-st" data-index="' + index + '" class="px-2 py-1 bg-black/20 hover:bg-red-500/80 hover:text-white transition-colors focus:outline-none border-l border-inherit" title="Удалить">×</button>' +
@@ -689,14 +800,13 @@ const renderCharacter = () => {
                             })()}
                         </div>
                     </div>
-                    <!-- КОНЕЦ БЛОКА СПАСБРОСКОВ -->
 
                     <div class="w-full flex flex-col mt-6 animate-[fadeIn_0.3s_ease-out]">
                         <div class="\${sectionTitleClass}">
                             <span>📝</span>
                             <h3 class="text-lg font-semibold tracking-wide uppercase">Заметки</h3>
                         </div>
-                        <textarea data-field="notes" class="w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-3 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors resize-y min-h-[120px]" placeholder="Ваши записи, квесты, контакты и важная информация...">${escapeHTML(char.notes || '')}</textarea>
+                        <textarea data-field="notes" class="w-full bg-[#1a1a1a] border border-[#333] rounded-lg p-3 outline-none focus:border-[#666] text-[#e0e0e0] text-sm transition-colors resize-y min-h-[120px]" placeholder="Ваши записи, квесты, контакты и важная информация...">\${escapeHTML(char.notes || '')}</textarea>
                     </div>
                 ` : ''}
             </div>
@@ -792,20 +902,55 @@ document.getElementById('app').addEventListener('input', (e) => {
         let isMatched = false;
         
         const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
+        
         if (targetLibrary && targetLibrary[searchKey]) {
             e.target.classList.add('lib-matched');
-            if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+            if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
                 tooltipBox.innerHTML = parseEmojis(escapeHTML(targetLibrary[searchKey]));
             }
             isMatched = true;
+
+            // Если это действие — заполняем поля из библиотеки (включая actionType -> type)
+            if (field === 'actions' && window.flatLibraryFull && window.flatLibraryFull[searchKey]) {
+                const idx = parseInt(index);
+                const libItem = window.flatLibraryFull[searchKey];
+                const { sl, cost, type } = computeActionFieldsFromLib(char, libItem);
+
+                // Обновляем состояние
+                char.actions[idx].sl = sl;
+                char.actions[idx].cost = cost;
+                char.actions[idx].type = type;
+
+                // Записываем в DOM
+                const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
+                const costInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="cost"]`);
+                const typeInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="type"]`);
+
+                if (slInput) {
+                    slInput.value = sl;
+                    slInput.readOnly = true;
+                    slInput.classList.add('cursor-not-allowed', 'opacity-70');
+                }
+                if (costInput) costInput.value = cost;
+                if (typeInput) {
+                    typeInput.value = type;
+                    if (libItem.actionType) {
+                        typeInput.readOnly = true;
+                        typeInput.classList.add('cursor-not-allowed', 'opacity-70');
+                    } else {
+                        typeInput.readOnly = false;
+                        typeInput.classList.remove('cursor-not-allowed', 'opacity-70');
+                    }
+                }
+                
+                e.target.setAttribute('data-was-matched', 'true');
+            }
         } 
         
         if (field === 'equipment' && window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
             e.target.classList.add('lib-matched');
-            if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+            if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
                 const weaponData = window.flatWeaponsLibrary[searchKey];
-                
-                // Добавляем тип и вес при динамическом вводе
                 let extraTooltipInfo = '';
                 if (weaponData.type || weaponData.weight) {
                     const typeStr = weaponData.type ? `Тип: ${weaponData.type}` : '';
@@ -813,16 +958,59 @@ document.getElementById('app').addEventListener('input', (e) => {
                     const combined = [typeStr, weightStr].filter(Boolean).join(' | ');
                     extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
                 }
-                
                 tooltipBox.innerHTML = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
             }
             isMatched = true;
         }
 
+        // Если совпадения НЕТ
         if (!isMatched) {
             e.target.classList.remove('lib-matched');
-            if(tooltipBox && tooltipBox.classList.contains('tooltip-box')){
+            if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
                 tooltipBox.innerHTML = '';
+            }
+
+            if (field === 'actions') {
+                const idx = parseInt(index);
+                const wasMatched = e.target.getAttribute('data-was-matched') === 'true';
+                const isEmpty = val.trim() === '';
+
+                if (isEmpty || wasMatched) {
+                    char.actions[idx].sl = '';
+                    char.actions[idx].cost = '';
+                    char.actions[idx].type = '';
+
+                    const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
+                    const costInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="cost"]`);
+                    const typeInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="type"]`);
+
+                    if (slInput) {
+                        slInput.value = '';
+                        slInput.readOnly = false;
+                        slInput.classList.remove('cursor-not-allowed', 'opacity-70');
+                    }
+                    if (costInput) costInput.value = '';
+                    if (typeInput) {
+                        typeInput.value = '';
+                        typeInput.readOnly = false;
+                        typeInput.classList.remove('cursor-not-allowed', 'opacity-70');
+                    }
+                    
+                    e.target.removeAttribute('data-was-matched');
+                }
+                else {
+                    const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
+                    const typeInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="type"]`);
+                    
+                    if (slInput) {
+                        slInput.readOnly = false;
+                        slInput.classList.remove('cursor-not-allowed', 'opacity-70');
+                    }
+                    if (typeInput) {
+                        typeInput.readOnly = false;
+                        typeInput.classList.remove('cursor-not-allowed', 'opacity-70');
+                    }
+                }
             }
         }
         
@@ -853,16 +1041,15 @@ document.getElementById('app').addEventListener('input', (e) => {
                 char[field] = num > 0 ? '+' + num : num.toString();
             }
             updateDamageDisplays();
-        } 
+            updateActionDisplays();
+        }
         else if (e.target.type === 'number') {
             char[field] = value === '' ? '' : Number(value);
             
-            // Если изменился опыт — проверяем изменение уровня
             if (field === 'exp') {
                 const oldLevel = char.level || 1;
                 const newLevel = calculateLevel(char.exp);
                 
-                // Если уровень действительно поменялся (игрок перешел порог опыта)
                 if (oldLevel !== newLevel) {
                     char.level = newLevel;
                     const levelDisplay = document.getElementById(`level-display-${char.id}`);
@@ -870,15 +1057,11 @@ document.getElementById('app').addEventListener('input', (e) => {
                     if (levelDisplay) {
                         levelDisplay.value = char.level;
                         
-                        // Если новый уровень больше 1 — запускаем анимацию
                         if (newLevel > 1) {
-                            // Убираем серые цвета и добавляем желтое свечение
                             levelDisplay.classList.remove('bg-[#161616]', 'border-[#333]', 'text-[#888]');
                             levelDisplay.classList.add('bg-yellow-900/50', 'border-yellow-500', 'text-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.2)]');
                             
-                            // Возвращаем как было через 2 секунды (2000 миллисекунд)
                             setTimeout(() => {
-                                // Проверяем, существует ли еще элемент (вдруг игрок быстро переключил персонажа)
                                 if (document.body.contains(levelDisplay)) {
                                     levelDisplay.classList.remove('bg-yellow-900/50', 'border-yellow-500', 'text-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.2)]');
                                     levelDisplay.classList.add('bg-[#161616]', 'border-[#333]', 'text-[#888]');
@@ -897,7 +1080,6 @@ document.getElementById('app').addEventListener('input', (e) => {
 
 document.getElementById('app').addEventListener('wheel', (e) => {
     const field = e.target.getAttribute('data-field');
-    // Оставляем возможность менять колесиком только текущие (Current) значения
     if (field && ['hpCurrent', 'enCurrent', 'strsCurrent'].includes(field)) {
         e.preventDefault(); 
         
@@ -967,14 +1149,11 @@ document.getElementById('app').addEventListener('click', (e) => {
             const currentStatus = char[field][index].status || 0;
             let nextStatus = (currentStatus + 1) % 4;
 
-            // Если пытаемся поставить галочку (статус 1)
             if (nextStatus === 1) {
-                // Считаем количество уже существующих галочек в этом поле
                 const checkCount = char[field].reduce((count, item) => {
                     return item.status === 1 ? count + 1 : count;
                 }, 0);
 
-                // Если уже есть 5 галочек, перепрыгиваем на замок (статус 2)
                 if (checkCount >= 5) {
                     nextStatus = 2;
                 }
@@ -1008,16 +1187,8 @@ document.getElementById('app').addEventListener('click', (e) => {
         const index = parseInt(actionBtn.getAttribute('data-index'));
         const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (char && char.savingThrows) {
-            // Если кликаем по УЖЕ активному, и он не один — ничего не делаем (или можно сделать его неактивным, 
-            // но в вашем ТЗ сказано "он должен переводить все другие теги... в неоктивное состояние")
-            const isAlreadyActive = char.savingThrows[index].active;
-            
-            // Сначала выключаем все
             char.savingThrows.forEach(st => st.active = false);
-            
-            // Включаем тот, по которому кликнули
             char.savingThrows[index].active = true;
-            
             render();
         }
     } else if (action === 'remove-st') {
@@ -1025,7 +1196,6 @@ document.getElementById('app').addEventListener('click', (e) => {
         const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (char && char.savingThrows) {
             char.savingThrows.splice(index, 1);
-            // Если после удаления остался всего 1, принудительно делаем его активным
             if (char.savingThrows.length === 1) {
                 char.savingThrows[0].active = true;
             }
