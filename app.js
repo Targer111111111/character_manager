@@ -761,10 +761,10 @@ const renderCharacter = () => {
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full animate-[fadeIn_0.3s_ease-out] mt-4">
                         <div class="flex flex-col relative">
                             <span class="absolute right-0 -top-6 text-[10px] text-[#555] font-mono">Shift+X - Сбросить всё</span>
-                            \${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
+                            ${renderArraySection(char, 'buffs', '⏳', 'Временные усиления', 0, 4)}
                         </div>
                         <div class="flex flex-col">
-                            \${renderArraySection(char, 'traits', '✨', 'Черты', 2, 3)}
+                            ${renderArraySection(char, 'traits', '✨', 'Черты', 2, 3)}
                         </div>
                     </div>
                     
@@ -772,7 +772,7 @@ const renderCharacter = () => {
                    <div class="w-full flex items-center gap-3 mt-8 animate-[fadeIn_0.3s_ease-out] bg-[#232323] p-3 rounded-lg border border-[#333]">
                         <span class="text-sm font-semibold tracking-wide uppercase text-[#888] flex items-center gap-2">🛡️ Спасброски</span>
                         <div class="flex flex-wrap items-center gap-2 flex-1">
-                            \${(() => {
+                            ${(() => {
                                 const throws = char.savingThrows || [];
                                 const allOptions = ['сил', 'рзм', 'тел', 'лов', 'хар'];
                                 const available = allOptions.filter(opt => !throws.find(t => t.name === opt));
