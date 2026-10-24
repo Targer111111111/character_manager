@@ -86,7 +86,7 @@ Object.assign(window.parsedDndLibrary, {
             "Выключатель": {
                 type: "Action",
                 name: "Выключатель",
-                description: "СЛ:5, владелец теряет::electrified_effect_icon_high:, механизм получает::stupefaction_effect_icon_hight:(прием)",
+                description: "СЛ:5, владелец теряет::electrified_effect_icon_high:, механизм получает::stupefaction_effect_icon_hight:, если противник имеет тип:катушка тесла, то он переходит в выключенное состояние(прием)",
                 difficulty: 5,
                 actionType: "закл"
             },

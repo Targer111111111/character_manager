@@ -170,9 +170,9 @@ Object.assign(window.parsedDndLibrary, {
         "Инсомния": {
             type: "Action",
             name: "Инсомния",
-            description: "полностью имунны к :sleepy_effect_icon_high:, на отдыхе вост 2ен и 2хп меньше"
+            description: "полностью имунны к :sleepy_effect_icon_high:, на отдыхе вост на 2ен и 2хп меньше"
         },
-        "Хламидии": {
+        "Глисты": {
             type: "Action",
             name: "Хламидии",
             description: "при поедании еды шанс 3к20 что ее эффект не сработает"
@@ -206,6 +206,11 @@ Object.assign(window.parsedDndLibrary, {
             type: "Action",
             name: "Брюшной тиф",
             description: "начало дня -1макс хп"
+        },
+        "Отравление": {
+            type: "Action",
+            name: "Отравление",
+            description: "начало дня -1хп, начало акта получаете::poisoned_icon:"
         },
         "Сифилис": {
             type: "Action",
