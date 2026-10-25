@@ -168,52 +168,57 @@ Object.assign(window.parsedDndLibrary, {
     },
     "Болезни": {
         "Инсомния": {
-            type: "Action",
+            type: "Disease",
             name: "Инсомния",
             description: "полностью имунны к :sleepy_effect_icon_high:, на отдыхе вост на 2ен и 2хп меньше"
         },
         "Глисты": {
-            type: "Action",
+            type: "Disease",
             name: "Хламидии",
             description: "при поедании еды шанс 3к20 что ее эффект не сработает"
         },
         "Простуда": {
-            type: "Action",
+            type: "Disease",
             name: "Простуда",
             description: "блокирует востанавление хп во время отдыха"
         },
         "Сильный кашель": {
-            type: "Action",
+            type: "Disease",
             name: "Сильный кашель",
             description: "сил -1"
         },
         "Хрупкие кости": {
-            type: "Action",
+            type: "Disease",
             name: "Хрупкие кости",
             description: "защ -1"
         },
         "Помутнение": {
-            type: "Action",
+            type: "Disease",
             name: "Помутнение",
             description: "рзм -1"
         },
         "Жесткие колени": {
-            type: "Action",
+            type: "Disease",
             name: "Жесткие колени",
             description: "лов -1"
         },
         "Брюшной тиф": {
-            type: "Action",
+            type: "Disease",
             name: "Брюшной тиф",
             description: "начало дня -1макс хп"
         },
-        "Отравление": {
-            type: "Action",
-            name: "Отравление",
-            description: "начало дня -1хп, начало акта получаете::poisoned_icon:"
+        "Поврежденная рука": {
+            type: "Disease",
+            name: "Поврежденная рука",
+            description: "сил -1, лов -1, теряете возможность использовать вторую руку, а также возможность использовать двуручное оружие"
+        },
+        "Поврежденная нога": {
+            type: "Disease",
+            name: "Поврежденная нога",
+            description: "лов -2, защ-1, спас броски ловкости используются с помехой"
         },
         "Сифилис": {
-            type: "Action",
+            type: "Disease",
             name: "Сифилис",
             description: "макс хп -3, макс ен -4"
         }
