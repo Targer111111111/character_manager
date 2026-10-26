@@ -23,7 +23,10 @@
 
     <div id="app" class="w-full flex flex-col items-center"></div>
 
-    <!-- Вот так мы подключаем вырезанную логику -->
-    <script src="app.js?v=1.96"></script>
+    <!-- Подключаем разделенные модули по порядку -->
+    <script src="./js/utilsAndLibs.js"></script>
+    <script src="./js/state.js"></script>
+    <script src="./js/render.js"></script>
+    <script src="app.js?v=2.0"></script>
 </body>
 </html>
