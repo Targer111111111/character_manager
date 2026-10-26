@@ -129,17 +129,17 @@ window.weaponsLibrary = {
             "type": "дальнее"
         },
         "Пистолет А": {
-            "description": "СЛ:20 накладывает::vulnerability_effect_icon_high:",
+            "description": "СЛ:19 накладывает::vulnerability_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 1,
-            "weight":"среднее",
+            "weight":"легкое",
             "type": "дальнее"
         },
         "Пистолет Б": {
-            "description": "СЛ:20 накладывает::vulnerability_effect_icon_high:",
+            "description": "СЛ:19 накладывает::vulnerability_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 1,
-            "weight":"среднее",
+            "weight":"легкое",
             "type": "дальнее"
         },
         "Обрез": {
@@ -198,11 +198,11 @@ window.weaponsLibrary = {
     },
     "Особое": {
         "Острая монетка": {
-            "description": "При попадании увеличивает урон в след ходу на 3урн",
+            "description": "При попадании накладывает::vulnerability_effect_icon_high:",
             "damage": "1d4",
             "damage_mod": 0,
             "weight":"легкое",
-            "type": "ближнее"
+            "type": "дальнее"
         },
         "Сумка мимик": {
             "description": "Если покормить мясом: след день урон 1d6+2, не использует модификаторы игроков на урон, +1 слот инвентаря",
