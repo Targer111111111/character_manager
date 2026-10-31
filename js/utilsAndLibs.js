@@ -30,7 +30,7 @@ if (rawSkillLibrary) {
                 const k = key.trim().toLowerCase();
                 window.flatLibrary[k] = item;
             } else if (item && typeof item === 'object' && item.description !== undefined) {
-                const k = (item.name || key).trim().toLowerCase();
+                const k = key.trim().toLowerCase();
                 window.flatLibrary[k] = item.description;
                 window.flatLibraryFull[k] = item;
             } else if (typeof item === 'object' && item !== null) {
