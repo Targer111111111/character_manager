@@ -159,7 +159,7 @@ Object.assign(window.parsedDndLibrary, {
         "Расовое": {
             "Природная ловкость": {
                 type: "Skill",
-                description: "ловкость +2"
+                description: "ловкость +1"
             }
         }
     },
