@@ -150,15 +150,15 @@ window.weaponsLibrary = {
             "type": "дальнее"
         },
         "Обрез": {
-            "description": "если находится в притык, урн 2d4",
-            "damage": "1d4",
+            "description": "если находится не в притык, урн 1d4",
+            "damage": "2d4",
             "damage_mod": 0,
             "weight":"легкое",
             "type": "дальнее"
         },
         "Винтовка со штыком": {
-            "description": "бонусным действием можно накладывать: :bleeding_effect_icon_high:, в ближнем бою",
-            "damage": "1d8",
+            "description": "бонусным действием можно накладывать: :bleeding_effect_icon_high:, в ближнем бою, макс хп-2",
+            "damage": "1d6",
             "damage_mod": 1,
             "weight":"среднее",
             "type": "дальнее"
@@ -171,7 +171,7 @@ window.weaponsLibrary = {
             "type": "дальнее"
         }, 
         "Воздушка": {
-            "description": "СЛ:17 накладывает::prone_effect_icon_high:",
+            "description": "СЛ:17 накладывает::prone_effect_icon_high:, дальность атаки+1, макс хп-2",
             "damage": "1d6",
             "damage_mod": 2,
             "weight":"среднее",
