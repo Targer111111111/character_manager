@@ -56,13 +56,18 @@ if (typeof window.dndItemLibrary !== 'undefined') {
     processItemLibrary(window.dndItemLibrary);
 }
 
-// База 3: Оружие
+// База 3: Оружие (главные массивы: сил, лов, рзм)
 window.flatWeaponsLibrary = {};
 if (typeof window.weaponsLibrary !== 'undefined') {
     const processWeaponsLibrary = (obj) => {
-        for (const category in obj) {
-            for (const weaponName in obj[category]) {
-                window.flatWeaponsLibrary[weaponName.trim().toLowerCase()] = obj[category][weaponName];
+        for (const statCategory in obj) {
+            const normalizedStat = statCategory.trim().toLowerCase();
+            for (const weaponName in obj[statCategory]) {
+                const weaponObj = obj[statCategory][weaponName];
+                window.flatWeaponsLibrary[weaponName.trim().toLowerCase()] = {
+                    ...weaponObj,
+                    stat: weaponObj.stat || normalizedStat
+                };
             }
         }
     };

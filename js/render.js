@@ -32,8 +32,6 @@ const renderTopBar = () => `
 const renderArraySection = (char, field, icon, title, min, max) => {
     const arr = char[field] || [];
     const isComplexObj = ['skills', 'inventory', 'actions', 'buffs'].includes(field);
-    const strTotal = (parseInt(char.strength) || 0) + getBuffForStat(char, 'strength');
-    const dexTotal = (parseInt(char.dexterity) || 0) + getBuffForStat(char, 'dexterity');
     
     const htmlItems = arr.map((item, index) => {
         const textVal = isComplexObj ? (item.name || '') : item;
@@ -63,6 +61,22 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             matchedClass = 'lib-matched'; 
         }
 
+        if (field === 'equipment' && window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
+            const weaponData = window.flatWeaponsLibrary[searchKey];
+            matchedClass = 'lib-matched';
+            
+            let extraTooltipInfo = '';
+            if (weaponData.stat || weaponData.type || weaponData.weight) {
+                const combined = [
+                    weaponData.stat ? `Хар-ка: ${weaponData.stat.toUpperCase()}` : '',
+                    weaponData.type ? `Тип: ${weaponData.type}` : '',
+                    weaponData.weight ? `Вес: ${weaponData.weight}` : ''
+                ].filter(Boolean).join(' | ');
+                extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
+            }
+            tooltipContent = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+        }
+
         let damageDisplay = '';
         if (field === 'equipment' && index < 2) {
             let boxContent = '-';
@@ -71,24 +85,14 @@ const renderArraySection = (char, field, icon, title, min, max) => {
 
             if (window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
                 const weaponData = window.flatWeaponsLibrary[searchKey];
-                matchedClass = 'lib-matched';
+                const hasDamage = weaponData.damage && weaponData.damage !== '0' && weaponData.damage !== '-';
                 
-                let extraTooltipInfo = '';
-                if (weaponData.type || weaponData.weight) {
-                    const combined = [
-                        weaponData.type ? `Тип: ${weaponData.type}` : '',
-                        weaponData.weight ? `Вес: ${weaponData.weight}` : ''
-                    ].filter(Boolean).join(' | ');
-                    extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
-                }
-                
-                tooltipContent = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
-                
-                if (weaponData.type === 'ближнее' || weaponData.type === 'дальнее') {
-                    let modTotal = (weaponData.damage_mod || 0) + (weaponData.type === 'ближнее' ? strTotal : dexTotal);
+                if (hasDamage) {
+                    const statMod = getStatTotalByShortName(char, weaponData.stat);
+                    let modTotal = (weaponData.damage_mod || 0) + statMod;
                     let modString = modTotal > 0 ? `+${modTotal}` : (modTotal < 0 ? `${modTotal}` : '');
                     boxContent = `${weaponData.damage}${modString}`;
-                    boxTitle = `Урон: ${boxContent}`;
+                    boxTitle = `Урон: ${boxContent}${weaponData.stat ? ` (${weaponData.stat.toUpperCase()})` : ''}`;
                     boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#e0e0e0] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center font-mono';
                 } else {
                     boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
@@ -170,10 +174,16 @@ const renderArraySection = (char, field, icon, title, min, max) => {
             `;
         }
 
-        const indexDisplay = (field === 'inventory' && (index + 1) >= 4) ? '🎒' : `${index + 1}.`;
+        let indexDisplay = `${index + 1}.`;
+        if (field === 'inventory' && (index + 1) >= 4) {
+            indexDisplay = '🎒';
+        } else if (field === 'equipment' && index < 2) {
+            indexDisplay = '✋';
+        }
+
         return `
             <div class="flex items-center gap-1 sm:gap-2 w-full">
-                <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0">${indexDisplay}</span>
+                <span class="text-[#555] font-mono text-xs w-3 sm:w-4 flex-shrink-0 text-center">${indexDisplay}</span>
                 ${statusToggle}
                 <div class="tooltip-container">
                     <input type="text" data-field="${field}" data-index="${index}" ${isComplexObj ? 'data-subfield="name"' : ''} value="${escapeHTML(textVal)}" placeholder="${title}..." class="${listInputClass} ${matchedClass}" />
