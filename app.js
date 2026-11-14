@@ -1,3 +1,17 @@
+const formatWeaponTooltip = (weaponData) => {
+    let extraTooltipInfo = '';
+    const distanceType = weaponData.type || weaponData.range || '';
+    if (weaponData.stat || distanceType || weaponData.weight) {
+        const combined = [
+            weaponData.stat ? `Хар-ка: ${weaponData.stat.toUpperCase()}` : '',
+            distanceType ? `Тип: ${distanceType}` : '',
+            weaponData.weight ? `Вес: ${weaponData.weight}` : ''
+        ].filter(Boolean).join(' | ');
+        extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
+    }
+    return parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+};
+
 const updateActionDisplays = () => {
     const char = state.characters.find(c => c.id === state.currentCharacterId);
     if (!char || !char.actions) return;
@@ -18,9 +32,6 @@ const updateDamageDisplays = () => {
     const char = state.characters.find(c => c.id === state.currentCharacterId);
     if (!char) return;
 
-    const strTotal = (parseInt(char.strength) || 0) + getBuffForStat(char, 'strength');
-    const dexTotal = (parseInt(char.dexterity) || 0) + getBuffForStat(char, 'dexterity');
-
     for (let i = 0; i < 2; i++) {
         const input = document.querySelector(`input[data-field="equipment"][data-index="${i}"]`);
         const damageBox = document.getElementById(`damage-display-${i}`);
@@ -33,12 +44,14 @@ const updateDamageDisplays = () => {
             
             if (window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
                 const weaponData = window.flatWeaponsLibrary[searchKey];
+                const hasDamage = weaponData.damage && weaponData.damage !== '0' && weaponData.damage !== '-';
                 
-                if (weaponData.type === 'ближнее' || weaponData.type === 'дальнее') {
-                    let modTotal = (weaponData.damage_mod || 0) + (weaponData.type === 'ближнее' ? strTotal : dexTotal);
-                    let modString = modTotal > 0 ? `+${modTotal}` : (modTotal < 0 ? `${modTotal}` : '');
+                if (hasDamage) {
+                    const statMod = getStatTotalByShortName(char, weaponData.stat);
+                    const modTotal = (weaponData.damage_mod || 0) + statMod;
+                    const modString = modTotal > 0 ? `+${modTotal}` : (modTotal < 0 ? `${modTotal}` : '');
                     boxContent = `${weaponData.damage}${modString}`;
-                    boxTitle = `Урон: ${boxContent}`;
+                    boxTitle = `Урон: ${boxContent}${weaponData.stat ? ` (${weaponData.stat.toUpperCase()})` : ''}`;
                     boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#e0e0e0] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center font-mono';
                 } else {
                     boxClass = 'w-[70px] sm:w-[85px] bg-[#232323] border border-[#444] rounded px-1 py-2 text-[#666] text-sm text-center flex-shrink-0 cursor-default flex items-center justify-center';
@@ -50,6 +63,19 @@ const updateDamageDisplays = () => {
             damageBox.title = boxTitle;
         }
     }
+
+    // Синхронизация тултипов для всех слотов экипировки
+    const eqInputs = document.querySelectorAll('input[data-field="equipment"]');
+    eqInputs.forEach(input => {
+        const searchKey = input.value.trim().toLowerCase();
+        const tooltipBox = input.nextElementSibling;
+        if (window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
+            input.classList.add('lib-matched');
+            if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
+                tooltipBox.innerHTML = formatWeaponTooltip(window.flatWeaponsLibrary[searchKey]);
+            }
+        }
+    });
 };
 
 window.addEventListener('beforeunload', (e) => {
@@ -126,16 +152,7 @@ document.getElementById('app').addEventListener('input', (e) => {
         if (field === 'equipment' && window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
             e.target.classList.add('lib-matched');
             if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
-                const weaponData = window.flatWeaponsLibrary[searchKey];
-                let extraTooltipInfo = '';
-                if (weaponData.type || weaponData.weight) {
-                    const combined = [
-                        weaponData.type ? `Тип: ${weaponData.type}` : '',
-                        weaponData.weight ? `Вес: ${weaponData.weight}` : ''
-                    ].filter(Boolean).join(' | ');
-                    extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
-                }
-                tooltipBox.innerHTML = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+                tooltipBox.innerHTML = formatWeaponTooltip(window.flatWeaponsLibrary[searchKey]);
             }
             isMatched = true;
         }
@@ -341,4 +358,14 @@ tailwind.config = {
     }
 };
 
+// Автоматически обновляем плашки урона и тултипы после каждого вызова render()
+const appContainer = document.getElementById('app');
+if (appContainer) {
+    const observer = new MutationObserver(() => {
+        updateDamageDisplays();
+    });
+    observer.observe(appContainer, { childList: true });
+}
+
 render();
+updateDamageDisplays();
