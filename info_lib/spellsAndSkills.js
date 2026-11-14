@@ -343,7 +343,7 @@ Object.assign(window.parsedDndLibrary, {
         "Ур3": {
             "Удар с локтя": {
                 type: "Action",
-                description: "имеет урон рукопашки, если противник имеет: :vulnerability_effect_icon_high:, урн +1d4(рукопашный бой)(прием)",
+                description: "имеет урон рукопашки, если противник имеет: :vulnerability_effect_icon_high:, урн +1d6(рукопашный бой)(прием)",
                 actionType: "прием"
             },
             "Удар поддых": {
