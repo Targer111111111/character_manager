@@ -2,7 +2,7 @@ window.parsedDndLibrary = window.parsedDndLibrary || {}; // Создаем пу�
 
 Object.assign(window.parsedDndLibrary, {
     "Инженерия": {
-        "Иженерия": {
+        "Инженерия": {
             type: "Skill",
             description: "Базовое понимание физики и знания инструментов"
         },
