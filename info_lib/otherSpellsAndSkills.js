@@ -153,6 +153,10 @@ Object.assign(window.parsedDndLibrary, {
             type: "Disease",
             description: "полностью имунны к :sleepy_effect_icon_high:, на отдыхе вост на 2ен и 2хп меньше"
         },
+        "Параноя": {
+            type: "Disease",
+            description: "на отдыхе вост на -3 ен меньше, макс ен +4"
+        },
         "Глисты": {
             type: "Disease",
             description: "при поедании еды шанс 3к20 что ее эффект не сработает"
@@ -165,9 +169,17 @@ Object.assign(window.parsedDndLibrary, {
             type: "Disease",
             description: "сил -1"
         },
-        "Хрупкие кости": {
+        "Ожоги первой степени": {
             type: "Disease",
             description: "защ -1"
+        },
+        "Ожоги второй степени": {
+            type: "Disease",
+            description: "защ -2"
+        },
+        "Ожоги третей степени": {
+            type: "Disease",
+            description: "защ -3"
         },
         "Помутнение": {
             type: "Disease",
