@@ -262,7 +262,7 @@ document.getElementById('app').addEventListener('input', (e) => {
 
 document.getElementById('app').addEventListener('wheel', (e) => {
     const field = e.target.getAttribute('data-field');
-    if (field && ['hpCurrent', 'enCurrent', 'strsCurrent'].includes(field)) {
+    if (field && ['hpCurrent', 'enCurrent', 'strsCurrent', 'consCurrent'].includes(field)) {
         e.preventDefault(); 
         const char = state.characters.find(c => c.id === state.currentCharacterId);
         if (!char) return;
