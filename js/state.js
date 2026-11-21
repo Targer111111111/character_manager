@@ -15,7 +15,7 @@ const createDefaultCharacter = () => ({
     strsCurrent: 0,
     strsMax: 10,
     consCurrent: 0,
-    consMax: 0,
+    consMax: 1,
     personality: '',
     notes: '',
     skills: Array.from({length: 4}, () => ({name: '', val: '', status: 0})),
