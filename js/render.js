@@ -299,6 +299,14 @@ const renderCharacter = () => {
                     <span class="text-[10px] uppercase tracking-widest text-[#888] font-semibold">РЗМ</span>
                     <input type="text" data-field="mind" value="${formatStatDisplay(char.mind, mindBuff)}" class="${numberInputClass} ${getStatColorClass(mindBuff)} transition-all text-2xl h-10" title="${mindBuff ? (mindBuff > 0 ? '+'+mindBuff : mindBuff) + ' от баффов' : ''}" />
                 </div>
+                <div class="${statBoxClass}">
+                    <span class="text-[10px] uppercase tracking-widest text-amber-400 font-semibold">КОНС</span>
+                    <div class="flex items-center gap-1 w-full h-10">
+                        <input type="number" data-field="consCurrent" value="${char.consCurrent ?? 0}" class="${numberInputClass} text-lg h-full" />
+                        <span class="text-[#555]">/</span>
+                        <input type="number" data-field="consMax" value="${char.consMax ?? 0}" class="${numberInputClass} text-lg h-full opacity-70" />
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 w-full mt-4">
