@@ -71,6 +71,14 @@ Object.assign(window.parsedDndLibrary, {
                 costType: "ен",
                 actionType: "ремонт"
             },
+            "Пироман": {
+                type: "Skill",
+                description: "навык, наносимый урон от огня +2, макс хп-1"
+            },
+            "Пиротехник": {
+                type: "Skill",
+                description: "навык, дает неуязвимость к ожогам, макс хп-2"
+            },
             "Выключатель": {
                 type: "Action",
                 description: "СЛ:5, владелец теряет::electrified_effect_icon_high:, механизм получает::stupefaction_effect_icon_hight:, если противник имеет тип:катушка тесла, то он переходит в выключенное состояние(прием)",
@@ -581,11 +589,58 @@ Object.assign(window.parsedDndLibrary, {
         "Ур5": {
             "Отчаянный рывок": {
                 type: "Action",
-                description: "4хп, если игрок имеет меньше 6хп, он получает доп ход(закл)",
+                description: "если игрок имеет меньше 6хп, он получает доп ход(закл)",
                 cost: 4,
                 costType: "хп",
                 actionType: "закл"
             }
+        },
+        "Расовое": {}
+    },
+    "Дисциплина": {
+        "Ур1-2": {
+            "Деление": {
+                type: "Action",
+                description: "бонусное, вост 2хп",
+                cost: 3,
+                costType: "хп",
+                actionType: "прием"
+            },
+            "Подготовка": {
+                type: "Action",
+                description: "бонусное, в течение след 6сек(1ход) спасброски совершаются с преимуществом",
+                actionType: "прием"
+            },
+            "Защита строя": {
+                type: "Action",
+                description: "реакция, весь полученный урон принимаете с союзной цели на себя, если эта цель находится в приделах досягаемости вашей текущей СКР",
+                actionType: "стойка"
+            },
+            "Терпение": {
+                type: "Action",
+                description: "бонусное, снимает 2стрс",
+                cost: 3,
+                costType: "стрс",
+                actionType: "помощь"
+            }
+        },
+        "Ур3": {
+          "Отступление": {
+                type: "Action",
+                description: "владелец назад:3, снимает: :vulnerability_effect_icon_high:+:bleeding_effect_icon_high:",
+                cost: 2,
+                costType: "ен",
+                actionType: "прием"
+            },
+            "Лечение в бою": {
+                type: "Action",
+                description: "требуется::pressur_effect_icon_high:, вост цели 1d4+2хп",
+                actionType: "боевой закл"
+            },  
+        },
+        "Ур4": {
+        },
+        "Ур5": {
         },
         "Расовое": {}
     }
