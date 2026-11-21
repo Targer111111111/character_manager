@@ -54,27 +54,22 @@ const renderArraySection = (char, field, icon, title, min, max) => {
         let tooltipContent = '';
         let matchedClass = '';
         const searchKey = textVal.trim().toLowerCase();
-        const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
+        const isItemField = field === 'inventory' || field === 'equipment';
+        const targetLibrary = isItemField ? window.flatItemLibrary : window.flatLibrary;
         
         if (targetLibrary && targetLibrary[searchKey]) {
-            tooltipContent = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+            if (!isItemField && window.flatLibraryFull && window.flatLibraryFull[searchKey]) {
+                tooltipContent = formatActionTooltip(char, window.flatLibraryFull[searchKey]);
+            } else {
+                tooltipContent = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+            }
             matchedClass = 'lib-matched'; 
         }
 
         if (field === 'equipment' && window.flatWeaponsLibrary && window.flatWeaponsLibrary[searchKey]) {
             const weaponData = window.flatWeaponsLibrary[searchKey];
             matchedClass = 'lib-matched';
-            
-            let extraTooltipInfo = '';
-            if (weaponData.stat || weaponData.type || weaponData.weight) {
-                const combined = [
-                    weaponData.stat ? `Хар-ка: ${weaponData.stat.toUpperCase()}` : '',
-                    weaponData.type ? `Тип: ${weaponData.type}` : '',
-                    weaponData.weight ? `Вес: ${weaponData.weight}` : ''
-                ].filter(Boolean).join(' | ');
-                extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
-            }
-            tooltipContent = parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
+            tooltipContent = formatWeaponTooltip(weaponData);
         }
 
         let damageDisplay = '';

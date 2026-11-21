@@ -112,20 +112,70 @@ const getStatTotalByShortName = (char, statShort) => {
 
 const computeActionFieldsFromLib = (char, libItem) => {
     let sl = '';
-    if (libItem.difficulty !== undefined && libItem.difficulty !== null) {
+    if (libItem.difficulty !== undefined && libItem.difficulty !== null && libItem.difficulty !== '') {
         let diff = Number(libItem.difficulty);
-        if (libItem.difficultyType) {
-            const statMod = getStatTotalByShortName(char, libItem.difficultyType);
-            diff = diff + (-1 * statMod);
+        if (!Number.isNaN(diff)) {
+            if (libItem.difficultyType && char) {
+                const statMod = getStatTotalByShortName(char, libItem.difficultyType);
+                diff = diff + (-1 * statMod);
+            }
+            sl = String(diff);
+        } else {
+            sl = String(libItem.difficulty);
         }
-        sl = String(diff);
     }
 
     let cost = '';
-    if (libItem.cost !== undefined && libItem.cost !== null) {
+    if (libItem.cost !== undefined && libItem.cost !== null && libItem.cost !== '') {
         cost = `${libItem.cost}${libItem.costType || ''}`;
     }
 
-    let type = libItem.actionType ? String(libItem.actionType).toLowerCase() : '';
+    let type = (libItem.actionType && libItem.actionType !== '-') ? String(libItem.actionType).toLowerCase() : '';
     return { sl, cost, type };
+};
+
+// Форматирование тултипов
+const formatActionTooltip = (char, libItem) => {
+    if (!libItem) return '';
+    if (typeof libItem === 'string') return parseEmojis(escapeHTML(libItem));
+
+    const { sl, cost, type } = computeActionFieldsFromLib(char, libItem);
+    const metaParts = [];
+
+    if (type) metaParts.push(`Тип: ${type}`);
+    if (cost) metaParts.push(`Затраты: ${cost}`);
+    if (sl !== '') {
+        const statSuffix = libItem.difficultyType ? ` (${String(libItem.difficultyType).toUpperCase()})` : '';
+        metaParts.push(`СЛ: ${sl}${statSuffix}`);
+    }
+
+    const descHtml = libItem.description ? parseEmojis(escapeHTML(libItem.description)) : '';
+    let metaHtml = '';
+
+    if (metaParts.length > 0) {
+        const borderStyle = descHtml ? 'margin-top:6px; padding-top:4px; border-top:1px solid #3d3d3d;' : '';
+        metaHtml = `<span style="color:#999; font-size:0.75rem; display:block; ${borderStyle}">${parseEmojis(escapeHTML(metaParts.join(' | ')))}</span>`;
+    }
+
+    return descHtml + metaHtml;
+};
+
+const formatWeaponTooltip = (weaponData) => {
+    if (!weaponData) return '';
+    const distanceType = weaponData.type || weaponData.range || '';
+    const metaParts = [
+        weaponData.stat ? `Хар-ка: ${weaponData.stat.toUpperCase()}` : '',
+        distanceType ? `Тип: ${distanceType}` : '',
+        weaponData.weight ? `Вес: ${weaponData.weight}` : ''
+    ].filter(Boolean);
+
+    const descHtml = weaponData.description ? parseEmojis(escapeHTML(weaponData.description)) : '';
+    let metaHtml = '';
+
+    if (metaParts.length > 0) {
+        const borderStyle = descHtml ? 'margin-top:6px; padding-top:4px; border-top:1px solid #3d3d3d;' : '';
+        metaHtml = `<span style="color:#999; font-size:0.75rem; display:block; ${borderStyle}">${escapeHTML(metaParts.join(' | '))}</span>`;
+    }
+
+    return descHtml + metaHtml;
 };
