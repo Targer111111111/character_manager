@@ -1,30 +1,35 @@
-const formatWeaponTooltip = (weaponData) => {
-    let extraTooltipInfo = '';
-    const distanceType = weaponData.type || weaponData.range || '';
-    if (weaponData.stat || distanceType || weaponData.weight) {
-        const combined = [
-            weaponData.stat ? `Хар-ка: ${weaponData.stat.toUpperCase()}` : '',
-            distanceType ? `Тип: ${distanceType}` : '',
-            weaponData.weight ? `Вес: ${weaponData.weight}` : ''
-        ].filter(Boolean).join(' | ');
-        extraTooltipInfo = `<br><span style="color:#999; font-size:0.75rem; display:block; margin-top:4px;">${escapeHTML(combined)}</span>`;
-    }
-    return parseEmojis(escapeHTML(weaponData.description)) + extraTooltipInfo;
-};
-
 const updateActionDisplays = () => {
     const char = state.characters.find(c => c.id === state.currentCharacterId);
-    if (!char || !char.actions) return;
+    if (!char) return;
 
-    char.actions.forEach((act, idx) => {
-        const searchKey = (act.name || '').trim().toLowerCase();
-        const libItem = window.flatLibraryFull && window.flatLibraryFull[searchKey];
-        if (libItem && libItem.difficulty !== undefined && libItem.difficultyType) {
-            const { sl } = computeActionFieldsFromLib(char, libItem);
-            act.sl = sl;
-            const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
-            if (slInput) slInput.value = sl;
-        }
+    if (char.actions) {
+        char.actions.forEach((act, idx) => {
+            const searchKey = (act.name || '').trim().toLowerCase();
+            const libItem = window.flatLibraryFull && window.flatLibraryFull[searchKey];
+            if (libItem) {
+                if (libItem.difficulty !== undefined && libItem.difficulty !== null && libItem.difficulty !== '' && libItem.difficultyType) {
+                    const { sl } = computeActionFieldsFromLib(char, libItem);
+                    act.sl = sl;
+                    const slInput = document.querySelector(`input[data-field="actions"][data-index="${idx}"][data-subfield="sl"]`);
+                    if (slInput) slInput.value = sl;
+                }
+                const tooltipBox = document.querySelector(`.tooltip-box[data-tooltip-id="actions-${idx}"]`);
+                if (tooltipBox) tooltipBox.innerHTML = formatActionTooltip(char, libItem);
+            }
+        });
+    }
+
+    ['skills', 'traits'].forEach(field => {
+        if (!char[field]) return;
+        char[field].forEach((item, idx) => {
+            const nameVal = typeof item === 'string' ? item : (item.name || '');
+            const searchKey = nameVal.trim().toLowerCase();
+            const libItem = window.flatLibraryFull && window.flatLibraryFull[searchKey];
+            if (libItem) {
+                const tooltipBox = document.querySelector(`.tooltip-box[data-tooltip-id="${field}-${idx}"]`);
+                if (tooltipBox) tooltipBox.innerHTML = formatActionTooltip(char, libItem);
+            }
+        });
     });
 };
 
@@ -111,12 +116,17 @@ document.getElementById('app').addEventListener('input', (e) => {
         const tooltipBox = e.target.nextElementSibling;
         let isMatched = false;
         
-        const targetLibrary = (field === 'inventory' || field === 'equipment') ? window.flatItemLibrary : window.flatLibrary;
+        const isItemField = field === 'inventory' || field === 'equipment';
+        const targetLibrary = isItemField ? window.flatItemLibrary : window.flatLibrary;
         
         if (targetLibrary && targetLibrary[searchKey]) {
             e.target.classList.add('lib-matched');
             if (tooltipBox && tooltipBox.classList.contains('tooltip-box')) {
-                tooltipBox.innerHTML = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+                if (!isItemField && window.flatLibraryFull && window.flatLibraryFull[searchKey]) {
+                    tooltipBox.innerHTML = formatActionTooltip(char, window.flatLibraryFull[searchKey]);
+                } else {
+                    tooltipBox.innerHTML = parseEmojis(escapeHTML(targetLibrary[searchKey]));
+                }
             }
             isMatched = true;
 
